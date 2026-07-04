@@ -1,0 +1,142 @@
+import { useState } from 'react'
+import { supabase } from '../supabaseClient'
+
+const CATEGORIES = ["Matériaux", "Main d'œuvre", "Matériel", "Logistique", "Autres"]
+const ASSOCIES = ['Takiedine', 'Salah', 'Nej']
+
+export default function EntryForm({ user, onSaved }) {
+  const [type, setType] = useState('depense')
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [categorie, setCategorie] = useState(CATEGORIES[0])
+  const [designation, setDesignation] = useState('')
+  const [montant, setMontant] = useState('')
+  const [beneficiaire, setBeneficiaire] = useState(ASSOCIES[0])
+  const [commentaire, setCommentaire] = useState('')
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [confirmMsg, setConfirmMsg] = useState('')
+
+  function handlePhoto(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!montant || Number(montant) <= 0) return
+    setSaving(true)
+
+    let photo_url = null
+    if (photoFile) {
+      const path = `${Date.now()}_${photoFile.name}`
+      const { data, error } = await supabase.storage.from('recus').upload(path, photoFile)
+      if (!error && data) {
+        const { data: pub } = supabase.storage.from('recus').getPublicUrl(path)
+        photo_url = pub.publicUrl
+      }
+    }
+
+    const payload = {
+      type,
+      date,
+      categorie: type === 'depense' ? categorie : null,
+      designation: designation || null,
+      montant: Number(montant),
+      beneficiaire: type === 'retrait' ? beneficiaire : null,
+      auteur: user.nom,
+      commentaire: commentaire || null,
+      photo_url,
+      lu: user.nom === 'Nej',
+    }
+
+    const { error } = await supabase.from('entries').insert(payload)
+    setSaving(false)
+
+    if (!error) {
+      setConfirmMsg('Écriture enregistrée ✓')
+      setDesignation('')
+      setMontant('')
+      setCommentaire('')
+      setPhotoFile(null)
+      setPhotoPreview(null)
+      setTimeout(() => setConfirmMsg(''), 2000)
+      onSaved && onSaved()
+    } else {
+      setConfirmMsg("Erreur — vérifiez la connexion")
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div className="section-title">Nouvelle écriture</div>
+
+      <div className="type-toggle">
+        <button type="button" className={`${type === 'depense' ? 'active depense' : ''}`} onClick={() => setType('depense')}>Dépense</button>
+        <button type="button" className={`${type === 'recette' ? 'active recette' : ''}`} onClick={() => setType('recette')}>Recette</button>
+        <button type="button" className={`${type === 'retrait' ? 'active retrait' : ''}`} onClick={() => setType('retrait')}>Retrait</button>
+      </div>
+
+      <div className="form-field">
+        <label>Date</label>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+      </div>
+
+      {type === 'depense' && (
+        <div className="form-field">
+          <label>Catégorie</label>
+          <select value={categorie} onChange={(e) => setCategorie(e.target.value)}>
+            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+      )}
+
+      {type === 'retrait' && (
+        <div className="form-field">
+          <label>Bénéficiaire</label>
+          <select value={beneficiaire} onChange={(e) => setBeneficiaire(e.target.value)}>
+            {ASSOCIES.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+      )}
+
+      <div className="form-field">
+        <label>Désignation</label>
+        <input
+          type="text"
+          placeholder={type === 'depense' ? 'ex : Ciment, sable…' : type === 'recette' ? 'ex : Situation n°2' : 'ex : Part de bénéfice'}
+          value={designation}
+          onChange={(e) => setDesignation(e.target.value)}
+        />
+      </div>
+
+      <div className="form-field">
+        <label>Montant (DA)</label>
+        <input type="number" inputMode="decimal" step="0.01" min="0" placeholder="0.00" value={montant} onChange={(e) => setMontant(e.target.value)} required />
+      </div>
+
+      <div className="form-field">
+        <label>Commentaire (optionnel)</label>
+        <textarea value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
+      </div>
+
+      {type === 'depense' && (
+        <div className="form-field">
+          <label>Justificatif photo (optionnel)</label>
+          <div className="photo-input">
+            {photoFile ? photoFile.name : 'Toucher pour prendre une photo'}
+            <input type="file" accept="image/*" capture="environment" onChange={handlePhoto} />
+          </div>
+          {photoPreview && <img src={photoPreview} alt="aperçu" className="photo-preview" />}
+        </div>
+      )}
+
+      <button className="submit-btn" type="submit" disabled={saving}>
+        {saving ? 'Enregistrement…' : 'Enregistrer l\'écriture'}
+      </button>
+      {confirmMsg && <div style={{ textAlign: 'center', marginTop: 10, fontSize: '0.85rem' }}>{confirmMsg}</div>}
+    </form>
+  )
+}
