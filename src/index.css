@@ -1,0 +1,611 @@
+:root {
+  --paper: #F2EFE9;
+  --paper-line: #C9C2B4;
+  --ink: #1F2A24;
+  --ink-soft: #5B6760;
+  --blueprint: #2C5F7C;
+  --blueprint-deep: #1D4258;
+  --safety: #E0621B;
+  --recette: #3A6B4A;
+  --recette-bg: #E4EEE6;
+  --depense: #9B4530;
+  --depense-bg: #F3E5DF;
+  --retrait: #7A5B1E;
+  --retrait-bg: #F1E8D3;
+  --card: #FFFFFF;
+  --radius: 14px;
+  --font-display: 'Bitter', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    repeating-linear-gradient(180deg, transparent, transparent 27px, rgba(44,95,124,0.05) 28px);
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--blueprint);
+  outline-offset: 2px;
+}
+
+.app-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.top-bar {
+  padding: 18px 20px 14px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--ink);
+}
+
+.top-bar h1 {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.top-bar .who {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.content {
+  flex: 1;
+  padding: 16px 16px 88px;
+  overflow-y: auto;
+}
+
+/* --- Login / stamp pad --- */
+.login-screen {
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.stamp {
+  width: 92px;
+  height: 92px;
+  border: 3px solid var(--blueprint);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(-6deg);
+  margin-bottom: 18px;
+}
+
+.stamp span {
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--blueprint);
+  font-size: 0.85rem;
+  line-height: 1.1;
+}
+
+.login-screen h1 {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin: 0 0 4px;
+}
+
+.login-screen p {
+  color: var(--ink-soft);
+  margin: 0 0 28px;
+  font-size: 0.9rem;
+}
+
+.pin-dots {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--blueprint);
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.pin-dot.filled {
+  background: var(--blueprint);
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  max-width: 280px;
+}
+
+.keypad button {
+  padding: 18px 0;
+  border-radius: 12px;
+  border: 2px solid var(--ink);
+  background: var(--card);
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.keypad button:active {
+  background: var(--blueprint);
+  color: white;
+}
+
+.keypad button.wide {
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+}
+
+.error-shake {
+  color: var(--depense);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+  min-height: 1.2em;
+}
+
+.identity-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.identity-choice button {
+  padding: 18px;
+  border-radius: var(--radius);
+  border: 2px solid var(--ink);
+  background: var(--card);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* --- Bottom nav --- */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  background: var(--card);
+  border-top: 2px solid var(--ink);
+  display: flex;
+  padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+}
+
+.bottom-nav button {
+  flex: 1;
+  background: none;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 2px;
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  position: relative;
+}
+
+.bottom-nav button.active {
+  color: var(--blueprint);
+}
+
+.bottom-nav .icon {
+  font-size: 1.25rem;
+}
+
+.badge {
+  position: absolute;
+  top: -2px;
+  right: 18%;
+  background: var(--safety);
+  color: white;
+  border-radius: 999px;
+  min-width: 16px;
+  height: 16px;
+  font-size: 0.62rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  font-family: var(--font-mono);
+}
+
+/* --- Ledger / Livre comptable --- */
+.section-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.15rem;
+  margin: 4px 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.balance-card {
+  background: var(--blueprint);
+  color: white;
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+
+.balance-card .label {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: var(--font-mono);
+}
+
+.balance-card .amount {
+  font-family: var(--font-mono);
+  font-size: 1.9rem;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+
+.filter-chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink);
+  background: transparent;
+  font-size: 0.78rem;
+  font-family: var(--font-body);
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+.filter-chip.active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.ledger-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--paper-line);
+}
+
+.ledger-type-mark {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 6px;
+  padding: 3px 6px;
+  white-space: nowrap;
+  transform: rotate(-2deg);
+  border: 1.5px dashed currentColor;
+}
+
+.ledger-type-mark.recette { color: var(--recette); background: var(--recette-bg); }
+.ledger-type-mark.depense { color: var(--depense); background: var(--depense-bg); }
+.ledger-type-mark.retrait { color: var(--retrait); background: var(--retrait-bg); }
+
+.ledger-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ledger-designation {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.ledger-meta {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+.ledger-amount {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.ledger-amount.recette { color: var(--recette); }
+.ledger-amount.depense, .ledger-amount.retrait { color: var(--depense); }
+
+.new-badge {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--safety);
+  display: inline-block;
+  margin-left: 6px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--ink-soft);
+}
+
+/* --- Form --- */
+.form-field {
+  margin-bottom: 16px;
+}
+
+.form-field label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--paper-line);
+  background: var(--card);
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.form-field textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.type-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.type-toggle button {
+  flex: 1;
+  padding: 12px 0;
+  border-radius: 10px;
+  border: 2px solid var(--ink);
+  background: var(--card);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.type-toggle button.active.recette { background: var(--recette); border-color: var(--recette); color: white; }
+.type-toggle button.active.depense { background: var(--depense); border-color: var(--depense); color: white; }
+.type-toggle button.active.retrait { background: var(--retrait); border-color: var(--retrait); color: white; }
+
+.submit-btn {
+  width: 100%;
+  padding: 15px;
+  border-radius: 12px;
+  border: none;
+  background: var(--blueprint);
+  color: white;
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-top: 6px;
+}
+
+.submit-btn:disabled {
+  opacity: 0.5;
+}
+
+.photo-input {
+  border: 1.5px dashed var(--paper-line);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  position: relative;
+  cursor: pointer;
+}
+
+.photo-input input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.photo-preview {
+  width: 100%;
+  border-radius: 10px;
+  margin-top: 10px;
+  max-height: 160px;
+  object-fit: cover;
+}
+
+/* --- Checklist --- */
+.lot-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  border-left: 4px solid var(--paper-line);
+}
+
+.lot-card.en-cours { border-left-color: var(--safety); }
+.lot-card.termine { border-left-color: var(--recette); }
+
+.lot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.lot-header .numero {
+  font-family: var(--font-mono);
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+
+.lot-title {
+  font-weight: 600;
+  font-size: 0.88rem;
+  margin: 2px 0 8px;
+}
+
+.progress-bar {
+  height: 8px;
+  background: var(--paper-line);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--blueprint);
+  transition: width 0.3s;
+}
+
+.lot-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lot-controls select {
+  flex-shrink: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--paper-line);
+  font-size: 0.72rem;
+}
+
+.lot-controls input[type="range"] {
+  flex: 1;
+}
+
+.lot-pct {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  width: 42px;
+  text-align: right;
+}
+
+/* --- Dashboard (admin) --- */
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.stat-card .label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+  font-family: var(--font-mono);
+}
+
+.stat-card .value {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.associe-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--paper-line);
+  font-size: 0.88rem;
+}
+
+.notif-item {
+  background: #FFF8F0;
+  border: 1px solid #F0D8B8;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+
+.notif-item .who {
+  font-weight: 700;
+  color: var(--safety);
+}
+
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: var(--font-mono);
+  color: var(--ink-soft);
+}
