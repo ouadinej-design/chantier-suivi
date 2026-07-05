@@ -39,6 +39,7 @@ export default function GanttView({ user }) {
   const [zoom, setZoom] = useState('mois')
   const [editingId, setEditingId] = useState(null)
   const [editDraft, setEditDraft] = useState({})
+  const [delayDays, setDelayDays] = useState('')
   const [selectedPeriod, setSelectedPeriod] = useState(null) // { label, start, end }
   const [selectedTask, setSelectedTask] = useState(null)
 
@@ -134,10 +135,43 @@ export default function GanttView({ user }) {
   function startEdit(t) {
     setEditingId(t.id)
     setEditDraft({ debut: t.debut, fin: t.fin })
+    setDelayDays('')
   }
   async function saveEdit(id) {
     await supabase.from('gantt_taches').update({ debut: editDraft.debut, fin: editDraft.fin, updated_by: user.nom, updated_at: new Date().toISOString() }).eq('id', id)
     setEditingId(null)
+  }
+
+  function shiftDateStr(dateStr, days) {
+    const d = toDate(dateStr)
+    d.setDate(d.getDate() + days)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  async function applyDelay(cascade) {
+    const days = parseInt(delayDays, 10)
+    if (!days) return
+    const task = tasks.find((t) => t.id === editingId)
+    if (!task) return
+    const originalDebut = task.debut
+
+    const newDebut = shiftDateStr(task.debut, days)
+    const newFin = shiftDateStr(task.fin, days)
+    await supabase.from('gantt_taches').update({ debut: newDebut, fin: newFin, updated_by: user.nom, updated_at: new Date().toISOString() }).eq('id', task.id)
+
+    if (cascade) {
+      const toShift = tasks.filter((t) => !t.is_section && t.id !== task.id && t.debut && t.debut >= originalDebut)
+      for (const t of toShift) {
+        await supabase.from('gantt_taches').update({
+          debut: shiftDateStr(t.debut, days),
+          fin: shiftDateStr(t.fin, days),
+          updated_by: user.nom,
+          updated_at: new Date().toISOString(),
+        }).eq('id', t.id)
+      }
+    }
+    setEditingId(null)
+    setDelayDays('')
   }
 
   function openPeriod(unit) {
@@ -362,9 +396,35 @@ export default function GanttView({ user }) {
             <label>Fin</label>
             <input type="date" value={editDraft.fin || ''} onChange={(e) => setEditDraft({ ...editDraft, fin: e.target.value })} />
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             <button className="submit-btn" style={{ background: 'var(--recette)' }} onClick={() => saveEdit(editingId)}>Enregistrer</button>
             <button className="submit-btn" style={{ background: 'var(--ink-soft)' }} onClick={() => setEditingId(null)}>Annuler</button>
+          </div>
+
+          <div style={{ borderTop: '1px dashed var(--paper-line)', paddingTop: 12 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: 8, color: 'var(--safety)' }}>⏱ En cas de retard</div>
+            <div className="form-field">
+              <label>Nombre de jours de retard</label>
+              <input type="number" min="1" placeholder="ex : 5" value={delayDays} onChange={(e) => setDelayDays(e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button
+                className="submit-btn"
+                style={{ background: 'var(--safety)' }}
+                disabled={!delayDays}
+                onClick={() => applyDelay(false)}
+              >
+                Décaler cette tâche de {delayDays || '…'} j
+              </button>
+              <button
+                className="submit-btn"
+                style={{ background: 'var(--depense)' }}
+                disabled={!delayDays}
+                onClick={() => applyDelay(true)}
+              >
+                Décaler cette tâche + toutes les suivantes
+              </button>
+            </div>
           </div>
         </div>
       )}
