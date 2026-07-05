@@ -219,11 +219,13 @@ button {
   background: var(--card);
   border-top: 2px solid var(--ink);
   display: flex;
+  overflow-x: auto;
   padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
 }
 
 .bottom-nav button {
-  flex: 1;
+  flex: 1 0 auto;
+  min-width: 58px;
   background: none;
   border: none;
   display: flex;
@@ -232,7 +234,7 @@ button {
   gap: 4px;
   padding: 6px 2px;
   color: var(--ink-soft);
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-family: var(--font-body);
   font-weight: 500;
   position: relative;
