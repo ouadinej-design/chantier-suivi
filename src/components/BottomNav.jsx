@@ -1,5 +1,6 @@
 export default function BottomNav({ tab, setTab, isAdmin, unreadCount }) {
   const tabs = [
+    { id: 'taches', icon: '📋', label: 'À faire' },
     { id: 'livre', icon: '📖', label: 'Livre' },
     { id: 'nouvelle', icon: '✏️', label: 'Saisir' },
     { id: 'checklist', icon: '📐', label: 'Avancement' },
