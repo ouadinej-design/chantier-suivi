@@ -43,6 +43,27 @@ export default function Ledger({ user }) {
 
   const filtered = filter === 'tous' ? entries : entries.filter((e) => e.type === filter)
 
+  function exportCSV() {
+    const header = ['Date', 'Type', 'Catégorie/Désignation', 'Montant (DA)', 'Auteur', 'Bénéficiaire', 'Commentaire']
+    const rows = filtered.map((e) => [
+      e.date,
+      TYPE_LABELS[e.type],
+      (e.designation || e.categorie || '').replace(/"/g, "'"),
+      e.montant,
+      e.auteur,
+      e.beneficiaire || '',
+      (e.commentaire || '').replace(/"/g, "'"),
+    ])
+    const csv = [header, ...rows].map((r) => r.map((v) => `"${v}"`).join(';')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `livre-comptable-${filter}-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   function startEdit(entry) {
     setEditingId(entry.id)
     setEditDraft({
@@ -88,6 +109,9 @@ export default function Ledger({ user }) {
             {f === 'tous' ? 'Tout' : TYPE_LABELS[f]}
           </button>
         ))}
+        <button className="filter-chip" onClick={exportCSV} title="Exporter en CSV" style={{ marginLeft: 'auto' }}>
+          ⬇ CSV
+        </button>
       </div>
 
       {loading && <div className="empty-state">Chargement du registre…</div>}
@@ -130,6 +154,11 @@ export default function Ledger({ user }) {
                   {e.beneficiaire ? ` → ${e.beneficiaire}` : ''}
                 </div>
                 {e.commentaire && <div className="ledger-meta">{e.commentaire}</div>}
+                {e.photo_url && (
+                  <a href={e.photo_url} target="_blank" rel="noopener noreferrer">
+                    <img src={e.photo_url} alt="justificatif" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, marginTop: 6, border: '1px solid var(--paper-line)' }} />
+                  </a>
+                )}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                 <div className={`ledger-amount ${e.type}`}>
