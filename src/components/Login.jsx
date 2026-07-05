@@ -1,12 +1,17 @@
-import { useState } from 'react'
-
-const ADMIN_PIN = '1981'
-const TEAM_PIN = '5050'
+import { useEffect, useState } from 'react'
+import { supabase } from '../supabaseClient'
 
 export default function Login({ onLogin }) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
-  const [awaitingIdentity, setAwaitingIdentity] = useState(false)
+  const [pins, setPins] = useState(null)
+  const [candidates, setCandidates] = useState(null) // identités possibles si code partagé
+
+  useEffect(() => {
+    supabase.from('pins').select('*').then(({ data }) => {
+      if (data) setPins(data)
+    })
+  }, [])
 
   function pressDigit(d) {
     if (pin.length >= 4) return
@@ -19,16 +24,24 @@ export default function Login({ onLogin }) {
   }
 
   function checkPin(value) {
-    if (value === ADMIN_PIN) {
-      onLogin({ nom: 'Nej', role: 'admin' })
+    if (!pins) {
+      setError('Chargement en cours, réessayez')
+      setTimeout(() => setPin(''), 500)
       return
     }
-    if (value === TEAM_PIN) {
-      setAwaitingIdentity(true)
+    const matches = pins.filter((p) => p.pin === value)
+    if (matches.length === 0) {
+      setError('Code incorrect')
+      setTimeout(() => setPin(''), 400)
       return
     }
-    setError('Code incorrect')
-    setTimeout(() => setPin(''), 400)
+    if (matches.length === 1) {
+      const nom = matches[0].nom
+      onLogin({ nom, role: nom === 'Nej' ? 'admin' : 'associe' })
+      return
+    }
+    // Code partagé par plusieurs identités (ex: Takiedine et Salah au même code)
+    setCandidates(matches.map((m) => m.nom))
   }
 
   function backspace() {
@@ -36,15 +49,18 @@ export default function Login({ onLogin }) {
     setError('')
   }
 
-  if (awaitingIdentity) {
+  if (candidates) {
     return (
       <div className="login-screen">
         <div className="stamp"><span>CHANTIER<br/>SUIVI</span></div>
         <h1>Qui êtes-vous ?</h1>
         <p>Sélectionnez votre nom pour continuer</p>
         <div className="identity-choice">
-          <button onClick={() => onLogin({ nom: 'Takiedine', role: 'associe' })}>Takiedine</button>
-          <button onClick={() => onLogin({ nom: 'Salah', role: 'associe' })}>Salah</button>
+          {candidates.map((nom) => (
+            <button key={nom} onClick={() => onLogin({ nom, role: nom === 'Nej' ? 'admin' : 'associe' })}>
+              {nom}
+            </button>
+          ))}
         </div>
       </div>
     )
