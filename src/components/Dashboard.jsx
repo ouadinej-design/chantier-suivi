@@ -7,11 +7,26 @@ function formatDA(n) {
 
 export default function Dashboard({ onRead }) {
   const [entries, setEntries] = useState([])
+  const [overdueTasks, setOverdueTasks] = useState([])
   const [loading, setLoading] = useState(true)
 
   async function load() {
     const { data, error } = await supabase.from('entries').select('*')
     if (!error) setEntries(data || [])
+
+    const todayISO = new Date().toISOString().slice(0, 10)
+    const { data: gt } = await supabase.from('gantt_taches').select('*').eq('is_section', false).lt('fin', todayISO)
+    const ids = (gt || []).map((t) => t.checklist_id).filter(Boolean)
+    let clMap = {}
+    if (ids.length) {
+      const { data: cl } = await supabase.from('checklist').select('id, avancement').in('id', ids)
+      ;(cl || []).forEach((c) => { clMap[c.id] = c })
+    }
+    const overdue = (gt || []).filter((t) => {
+      const cl = t.checklist_id ? clMap[t.checklist_id] : null
+      return cl ? Number(cl.avancement) < 100 : true
+    })
+    setOverdueTasks(overdue)
     setLoading(false)
   }
 
@@ -20,6 +35,8 @@ export default function Dashboard({ onRead }) {
     const channel = supabase
       .channel('entries-dashboard')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'entries' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'gantt_taches' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist' }, load)
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [])
@@ -89,6 +106,14 @@ export default function Dashboard({ onRead }) {
         <div className="notif-item" key={e.id}>
           <span className="who">{e.auteur}</span> a saisi une {e.type} de {formatDA(e.montant)}
           {e.designation ? ` — ${e.designation}` : ''} ({new Date(e.date).toLocaleDateString('fr-FR')})
+        </div>
+      ))}
+
+      <div className="section-title" style={{ marginTop: 22 }}>⚠ Tâches en retard</div>
+      {overdueTasks.length === 0 && <div className="empty-state">Aucun retard sur le planning. 👍</div>}
+      {overdueTasks.map((t) => (
+        <div key={t.id} style={{ background: '#FDECEA', border: '1px solid var(--depense)', borderRadius: 10, padding: '10px 14px', marginBottom: 8, fontSize: '0.85rem' }}>
+          <strong>{t.designation}</strong> — fin prévue le {new Date(t.fin).toLocaleDateString('fr-FR')}
         </div>
       ))}
     </div>
