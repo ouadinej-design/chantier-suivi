@@ -1,7 +1,10 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { supabase } from '../supabaseClient'
+import LotAccordion from './LotAccordion.jsx'
 
 const MONTHS_FR = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc']
+const MONTHS_FULL_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
+const JOURS_FR = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam']
 
 function daysBetween(a, b) {
   return Math.round((b - a) / 86400000)
@@ -13,6 +16,14 @@ function toDate(s) {
 function fmt(d) {
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
+function fmtLong(d) {
+  return `${JOURS_FR[d.getDay()]} ${d.getDate()} ${MONTHS_FULL_FR[d.getMonth()]} ${d.getFullYear()}`
+}
+function addDays(d, n) {
+  const r = new Date(d)
+  r.setDate(r.getDate() + n)
+  return r
+}
 
 const ZOOMS = {
   jour: { pxPerDay: 26, label: 'Jour' },
@@ -23,20 +34,33 @@ const ZOOMS = {
 export default function GanttView({ user }) {
   const [tasks, setTasks] = useState([])
   const [checklistById, setChecklistById] = useState({})
+  const [etapesByChecklist, setEtapesByChecklist] = useState({})
   const [loading, setLoading] = useState(true)
   const [zoom, setZoom] = useState('mois')
   const [editingId, setEditingId] = useState(null)
   const [editDraft, setEditDraft] = useState({})
-
-  const isAdmin = user.role === 'admin'
+  const [selectedPeriod, setSelectedPeriod] = useState(null) // { label, start, end }
+  const [selectedTask, setSelectedTask] = useState(null)
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('gantt_taches').select('*').order('ordre', { ascending: true })
     setTasks(data || [])
-    const { data: cl } = await supabase.from('checklist').select('id, avancement, statut')
+
+    const { data: cl } = await supabase.from('checklist').select('*')
     const map = {}
     ;(cl || []).forEach((c) => { map[c.id] = c })
     setChecklistById(map)
+
+    const ids = (cl || []).map((c) => c.id)
+    if (ids.length) {
+      const { data: et } = await supabase.from('etapes').select('*').eq('parent_table', 'checklist').in('parent_id', ids).order('ordre', { ascending: true })
+      const grouped = {}
+      ;(et || []).forEach((e) => {
+        grouped[e.parent_id] = grouped[e.parent_id] || []
+        grouped[e.parent_id].push(e)
+      })
+      setEtapesByChecklist(grouped)
+    }
     setLoading(false)
   }, [])
 
@@ -46,6 +70,7 @@ export default function GanttView({ user }) {
       .channel('gantt-taches')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'gantt_taches' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'etapes' }, load)
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [load])
@@ -75,8 +100,36 @@ export default function GanttView({ user }) {
     return { rangeStart, rangeEnd, totalDays, monthBlocks: blocks }
   }, [tasks])
 
+  // Sous-en-tête : jours (zoom jour) ou semaines (zoom semaine)
+  const subUnits = useMemo(() => {
+    if (zoom === 'jour') {
+      const units = []
+      for (let i = 0; i < totalDays; i++) {
+        const d = addDays(rangeStart, i)
+        units.push({ start: d, end: d, days: 1, label: String(d.getDate()) })
+      }
+      return units
+    }
+    if (zoom === 'semaine') {
+      const units = []
+      let cur = new Date(rangeStart)
+      while (cur <= rangeEnd) {
+        const end = addDays(cur, 6) > rangeEnd ? rangeEnd : addDays(cur, 6)
+        const days = daysBetween(cur, end) + 1
+        units.push({ start: new Date(cur), end, days, label: fmt(cur) })
+        cur = addDays(cur, 7)
+      }
+      return units
+    }
+    return null
+  }, [zoom, rangeStart, rangeEnd, totalDays])
+
   const pxPerDay = ZOOMS[zoom].pxPerDay
   const totalWidth = totalDays * pxPerDay
+
+  function tasksActiveBetween(start, end) {
+    return tasks.filter((t) => !t.is_section && t.debut && t.fin && toDate(t.debut) <= end && toDate(t.fin) >= start)
+  }
 
   function startEdit(t) {
     setEditingId(t.id)
@@ -87,7 +140,20 @@ export default function GanttView({ user }) {
     setEditingId(null)
   }
 
+  function openPeriod(unit) {
+    setSelectedTask(null)
+    setSelectedPeriod(unit)
+  }
+  function openTaskDetail(t) {
+    setSelectedPeriod(null)
+    setSelectedTask(t)
+  }
+
   if (loading) return <div className="empty-state">Chargement du planning…</div>
+
+  const periodTasks = selectedPeriod ? tasksActiveBetween(selectedPeriod.start, selectedPeriod.end) : []
+  const selectedLot = selectedTask?.checklist_id ? checklistById[selectedTask.checklist_id] : null
+  const selectedEtapes = selectedTask?.checklist_id ? (etapesByChecklist[selectedTask.checklist_id] || []) : []
 
   return (
     <div>
@@ -95,19 +161,20 @@ export default function GanttView({ user }) {
 
       <div className="filter-row">
         {Object.entries(ZOOMS).map(([key, z]) => (
-          <button key={key} className={`filter-chip ${zoom === key ? 'active' : ''}`} onClick={() => setZoom(key)}>
+          <button key={key} className={`filter-chip ${zoom === key ? 'active' : ''}`} onClick={() => { setZoom(key); setSelectedPeriod(null); setSelectedTask(null) }}>
             {z.label}
           </button>
         ))}
       </div>
 
       <div style={{ fontSize: '0.75rem', color: 'var(--ink-soft)', marginBottom: 8 }}>
-        {fmt(rangeStart)} → {fmt(rangeEnd)} · fais glisser horizontalement pour naviguer · le remplissage clair = avancement réel
+        {fmt(rangeStart)} → {fmt(rangeEnd)} · tape une date pour voir le programme, une barre pour le détail
       </div>
 
       <div style={{ display: 'flex', border: '1px solid var(--paper-line)', borderRadius: 10, overflow: 'hidden' }}>
         <div style={{ flexShrink: 0, width: 132, background: 'var(--card)', borderRight: '2px solid var(--ink)' }}>
           <div style={{ height: 40, borderBottom: '2px solid var(--ink)', background: 'var(--ink)' }} />
+          {subUnits && <div style={{ height: 22, borderBottom: '1px solid var(--paper-line)', background: 'var(--card)' }} />}
           {tasks.map((t) => {
             const cl = t.checklist_id ? checklistById[t.checklist_id] : null
             const done = cl && Number(cl.avancement) >= 100
@@ -161,6 +228,33 @@ export default function GanttView({ user }) {
               ))}
             </div>
 
+            {subUnits && (
+              <div style={{ display: 'flex', height: 22, borderBottom: '1px solid var(--paper-line)' }}>
+                {subUnits.map((u, i) => {
+                  const isSel = selectedPeriod && u.start.getTime() === selectedPeriod.start.getTime()
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => openPeriod(u)}
+                      style={{
+                        width: u.days * pxPerDay,
+                        flexShrink: 0,
+                        border: 'none',
+                        borderRight: '1px solid var(--paper-line)',
+                        background: isSel ? 'var(--safety)' : 'var(--paper)',
+                        color: isSel ? 'white' : 'var(--ink-soft)',
+                        fontSize: '0.6rem',
+                        fontWeight: isSel ? 700 : 500,
+                        padding: 0,
+                      }}
+                    >
+                      {u.label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
             {tasks.map((t) => {
               if (t.is_section) {
                 return <div key={t.id} style={{ height: 26, background: '#EDE9DD', borderBottom: '1px solid var(--paper-line)' }} />
@@ -174,10 +268,11 @@ export default function GanttView({ user }) {
               const cl = t.checklist_id ? checklistById[t.checklist_id] : null
               const pct = cl ? Number(cl.avancement) : null
               const done = pct >= 100
+              const isSelTask = selectedTask?.id === t.id
               return (
                 <div key={t.id} style={{ height: 34, position: 'relative', borderBottom: '1px solid var(--paper-line)' }}>
                   <div
-                    onClick={() => startEdit(t)}
+                    onClick={() => openTaskDetail(t)}
                     style={{
                       position: 'absolute',
                       left: offsetDays * pxPerDay,
@@ -186,7 +281,7 @@ export default function GanttView({ user }) {
                       height: 24,
                       background: t.couleur,
                       borderRadius: 5,
-                      boxShadow: done ? '0 0 0 2px var(--recette)' : '0 1px 2px rgba(0,0,0,0.25)',
+                      boxShadow: isSelTask ? '0 0 0 2px var(--safety)' : done ? '0 0 0 2px var(--recette)' : '0 1px 2px rgba(0,0,0,0.25)',
                       opacity: done ? 0.55 : 1,
                       overflow: 'hidden',
                     }}
@@ -206,6 +301,55 @@ export default function GanttView({ user }) {
           </div>
         </div>
       </div>
+
+      {/* Panneau : programme du jour / de la semaine */}
+      {selectedPeriod && (
+        <div style={{ marginTop: 14, background: 'var(--card)', borderRadius: 12, padding: 14, border: '1.5px solid var(--paper-line)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>
+              Programme — {zoom === 'jour' ? fmtLong(selectedPeriod.start) : `semaine du ${fmt(selectedPeriod.start)} au ${fmt(selectedPeriod.end)}`}
+            </div>
+            <button onClick={() => setSelectedPeriod(null)} style={{ background: 'none', border: 'none', fontSize: '1rem' }}>✕</button>
+          </div>
+          {periodTasks.length === 0 && <div style={{ fontSize: '0.82rem', color: 'var(--ink-soft)' }}>Aucune tâche prévue sur cette période.</div>}
+          {periodTasks.map((t) => {
+            const cl = t.checklist_id ? checklistById[t.checklist_id] : null
+            return (
+              <div key={t.id} onClick={() => openTaskDetail(t)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--paper-line)' }}>
+                <div style={{ width: 14, height: 14, borderRadius: 4, background: t.couleur, flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{t.designation}</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--ink-soft)' }}>{fmt(toDate(t.debut))} → {fmt(toDate(t.fin))}</div>
+                </div>
+                {cl && <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', fontWeight: 700 }}>{cl.avancement}%</div>}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Panneau : détail d'une tâche (étapes liées à l'Avancement) */}
+      {selectedTask && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{selectedTask.designation}</div>
+            <button onClick={() => setSelectedTask(null)} style={{ background: 'none', border: 'none', fontSize: '1rem' }}>✕</button>
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--ink-soft)', marginBottom: 10 }}>
+            {fmt(toDate(selectedTask.debut))} → {fmt(toDate(selectedTask.fin))}
+          </div>
+          {selectedLot ? (
+            <LotAccordion
+              lot={{ ...selectedLot, parentTable: 'checklist' }}
+              etapes={selectedEtapes}
+              user={user}
+              onChanged={load}
+            />
+          ) : (
+            <div className="empty-state">Aucune étape détaillée liée à cette tâche.</div>
+          )}
+        </div>
+      )}
 
       {editingId && (
         <div style={{ marginTop: 14, background: 'var(--card)', borderRadius: 12, padding: 14, border: '1.5px solid var(--paper-line)' }}>
