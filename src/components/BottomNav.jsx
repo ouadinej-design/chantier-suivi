@@ -5,6 +5,7 @@ export default function BottomNav({ tab, setTab, isAdmin, unreadCount }) {
     { id: 'checklist', icon: '📐', label: 'Avancement' },
   ]
   if (isAdmin) tabs.push({ id: 'dashboard', icon: '📊', label: 'Bilan' })
+  tabs.push({ id: 'reglages', icon: '⚙️', label: 'Réglages' })
 
   return (
     <nav className="bottom-nav">
