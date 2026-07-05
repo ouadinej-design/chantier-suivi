@@ -77,6 +77,14 @@ export default function TachesDuJour({ user }) {
 
   const activeTasks = tasks.filter((t) => t.debut && t.fin && t.debut <= rangeEndISO && t.fin >= rangeStartISO)
 
+  const todayISO = toISO(new Date())
+  const overdueTasks = tasks.filter((t) => {
+    if (!t.fin || t.fin >= todayISO) return false
+    const cl = t.checklist_id ? checklistById[t.checklist_id] : null
+    if (cl) return Number(cl.avancement) < 100
+    return true
+  })
+
   function goPrev() {
     setAnchor(mode === 'jour' ? addDays(anchor, -1) : addDays(anchor, -7))
   }
@@ -92,6 +100,19 @@ export default function TachesDuJour({ user }) {
   return (
     <div>
       <div className="section-title">À faire</div>
+
+      {overdueTasks.length > 0 && (
+        <div style={{ background: '#FDECEA', border: '1.5px solid var(--depense)', borderRadius: 12, padding: '10px 14px', marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--depense)', marginBottom: 6 }}>
+            ⚠ {overdueTasks.length} tâche{overdueTasks.length > 1 ? 's' : ''} en retard
+          </div>
+          {overdueTasks.map((t) => (
+            <div key={t.id} style={{ fontSize: '0.78rem', color: 'var(--ink)', padding: '2px 0' }}>
+              • {t.designation} <span style={{ color: 'var(--ink-soft)' }}>(fin prévue le {new Date(t.fin).toLocaleDateString('fr-FR')})</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="filter-row">
         <button className={`filter-chip ${mode === 'jour' ? 'active' : ''}`} onClick={() => setMode('jour')}>Jour</button>
@@ -119,6 +140,7 @@ export default function TachesDuJour({ user }) {
         const cl = t.checklist_id ? checklistById[t.checklist_id] : null
         const etapes = cl ? (etapesByLot[cl.id] || []) : []
         const doneCount = etapes.filter((e) => e.fait).length
+        const isOverdue = t.fin < todayISO && (!cl || Number(cl.avancement) < 100)
         return (
           <div key={t.id} style={{ marginBottom: 12 }}>
             <div
@@ -134,7 +156,10 @@ export default function TachesDuJour({ user }) {
               }}
             >
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{t.designation}</div>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {t.designation}
+                  {isOverdue && <span style={{ fontSize: '0.62rem', background: 'var(--depense)', color: 'white', borderRadius: 5, padding: '2px 6px', fontWeight: 700 }}>RETARD</span>}
+                </div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--ink-soft)' }}>
                   {new Date(t.debut).toLocaleDateString('fr-FR')} → {new Date(t.fin).toLocaleDateString('fr-FR')}
                   {cl && ` · ${etapes.length ? `${doneCount}/${etapes.length} étapes` : ''} · ${cl.avancement}%`}
