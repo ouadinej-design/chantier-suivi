@@ -8,12 +8,13 @@ import Checklist from './components/Checklist.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import Settings from './components/Settings.jsx'
 import GanttView from './components/GanttView.jsx'
+import TachesDuJour from './components/TachesDuJour.jsx'
 
 const STORAGE_KEY = 'chantier-suivi-session'
 
 export default function App() {
   const [user, setUser] = useState(null)
-  const [tab, setTab] = useState('livre')
+  const [tab, setTab] = useState('taches')
   const [unreadCount, setUnreadCount] = useState(0)
   const [booting, setBooting] = useState(true)
 
@@ -68,6 +69,7 @@ export default function App() {
         <span className="who" onClick={handleLogout} title="Toucher pour changer de session">{user.nom}</span>
       </div>
       <div className="content">
+        {tab === 'taches' && <TachesDuJour user={user} />}
         {tab === 'livre' && <Ledger user={user} />}
         {tab === 'nouvelle' && <EntryForm user={user} onSaved={() => setTab('livre')} />}
         {tab === 'checklist' && <Checklist user={user} />}
