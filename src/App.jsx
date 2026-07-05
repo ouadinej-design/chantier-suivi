@@ -7,6 +7,7 @@ import EntryForm from './components/EntryForm.jsx'
 import Checklist from './components/Checklist.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import Settings from './components/Settings.jsx'
+import GanttView from './components/GanttView.jsx'
 
 const STORAGE_KEY = 'chantier-suivi-session'
 
@@ -70,6 +71,7 @@ export default function App() {
         {tab === 'livre' && <Ledger user={user} />}
         {tab === 'nouvelle' && <EntryForm user={user} onSaved={() => setTab('livre')} />}
         {tab === 'checklist' && <Checklist user={user} />}
+        {tab === 'gantt' && <GanttView user={user} />}
         {tab === 'dashboard' && isAdmin && <Dashboard onRead={() => setUnreadCount(0)} />}
         {tab === 'reglages' && <Settings user={user} />}
       </div>
