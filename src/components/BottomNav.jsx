@@ -3,6 +3,7 @@ export default function BottomNav({ tab, setTab, isAdmin, unreadCount }) {
     { id: 'livre', icon: '📖', label: 'Livre' },
     { id: 'nouvelle', icon: '✏️', label: 'Saisir' },
     { id: 'checklist', icon: '📐', label: 'Avancement' },
+    { id: 'gantt', icon: '📅', label: 'Planning' },
   ]
   if (isAdmin) tabs.push({ id: 'dashboard', icon: '📊', label: 'Bilan' })
   tabs.push({ id: 'reglages', icon: '⚙️', label: 'Réglages' })
