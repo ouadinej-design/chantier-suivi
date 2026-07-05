@@ -22,6 +22,7 @@ const ZOOMS = {
 
 export default function GanttView({ user }) {
   const [tasks, setTasks] = useState([])
+  const [checklistById, setChecklistById] = useState({})
   const [loading, setLoading] = useState(true)
   const [zoom, setZoom] = useState('mois')
   const [editingId, setEditingId] = useState(null)
@@ -32,6 +33,10 @@ export default function GanttView({ user }) {
   const load = useCallback(async () => {
     const { data } = await supabase.from('gantt_taches').select('*').order('ordre', { ascending: true })
     setTasks(data || [])
+    const { data: cl } = await supabase.from('checklist').select('id, avancement, statut')
+    const map = {}
+    ;(cl || []).forEach((c) => { map[c.id] = c })
+    setChecklistById(map)
     setLoading(false)
   }, [])
 
@@ -40,6 +45,7 @@ export default function GanttView({ user }) {
     const channel = supabase
       .channel('gantt-taches')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'gantt_taches' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist' }, load)
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [load])
@@ -96,38 +102,43 @@ export default function GanttView({ user }) {
       </div>
 
       <div style={{ fontSize: '0.75rem', color: 'var(--ink-soft)', marginBottom: 8 }}>
-        {fmt(rangeStart)} → {fmt(rangeEnd)} · fais glisser horizontalement pour naviguer
+        {fmt(rangeStart)} → {fmt(rangeEnd)} · fais glisser horizontalement pour naviguer · le remplissage clair = avancement réel
       </div>
 
       <div style={{ display: 'flex', border: '1px solid var(--paper-line)', borderRadius: 10, overflow: 'hidden' }}>
-        {/* Colonne fixe des désignations */}
         <div style={{ flexShrink: 0, width: 132, background: 'var(--card)', borderRight: '2px solid var(--ink)' }}>
           <div style={{ height: 40, borderBottom: '2px solid var(--ink)', background: 'var(--ink)' }} />
-          {tasks.map((t) => (
-            <div
-              key={t.id}
-              onClick={() => isAdmin && !t.is_section && startEdit(t)}
-              style={{
-                height: t.is_section ? 26 : 34,
-                display: 'flex',
-                alignItems: 'center',
-                padding: '0 8px',
-                fontSize: t.is_section ? '0.72rem' : '0.7rem',
-                fontWeight: t.is_section ? 700 : 500,
-                borderBottom: '1px solid var(--paper-line)',
-                background: t.is_section ? '#EDE9DD' : 'transparent',
-                lineHeight: 1.15,
-              }}
-            >
-              {t.designation}
-            </div>
-          ))}
+          {tasks.map((t) => {
+            const cl = t.checklist_id ? checklistById[t.checklist_id] : null
+            const done = cl && Number(cl.avancement) >= 100
+            return (
+              <div
+                key={t.id}
+                onClick={() => isAdmin && !t.is_section && startEdit(t)}
+                style={{
+                  height: t.is_section ? 26 : 34,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '0 8px',
+                  fontSize: t.is_section ? '0.72rem' : '0.7rem',
+                  fontWeight: t.is_section ? 700 : 500,
+                  borderBottom: '1px solid var(--paper-line)',
+                  background: t.is_section ? '#EDE9DD' : 'transparent',
+                  lineHeight: 1.15,
+                  color: done ? 'var(--ink-soft)' : 'var(--ink)',
+                  textDecoration: done ? 'line-through' : 'none',
+                }}
+              >
+                {done && <span style={{ flexShrink: 0 }}>✓</span>}
+                {t.designation}
+              </div>
+            )
+          })}
         </div>
 
-        {/* Zone scrollable du calendrier */}
         <div style={{ overflowX: 'auto', flex: 1 }}>
           <div style={{ width: totalWidth, minWidth: totalWidth }}>
-            {/* En-tête mois */}
             <div style={{ display: 'flex', height: 40, borderBottom: '2px solid var(--ink)' }}>
               {monthBlocks.map((b, i) => (
                 <div
@@ -150,17 +161,19 @@ export default function GanttView({ user }) {
               ))}
             </div>
 
-            {/* Lignes tâches */}
             {tasks.map((t) => {
               if (t.is_section) {
                 return <div key={t.id} style={{ height: 26, background: '#EDE9DD', borderBottom: '1px solid var(--paper-line)' }} />
               }
-              const isEditing = editingId === t.id
               if (!t.debut || !t.fin) {
                 return <div key={t.id} style={{ height: 34, borderBottom: '1px solid var(--paper-line)' }} />
               }
               const offsetDays = daysBetween(rangeStart, toDate(t.debut))
               const durDays = daysBetween(toDate(t.debut), toDate(t.fin)) + 1
+              const barWidth = Math.max(durDays * pxPerDay, 4)
+              const cl = t.checklist_id ? checklistById[t.checklist_id] : null
+              const pct = cl ? Number(cl.avancement) : null
+              const done = pct >= 100
               return (
                 <div key={t.id} style={{ height: 34, position: 'relative', borderBottom: '1px solid var(--paper-line)' }}>
                   <div
@@ -168,14 +181,25 @@ export default function GanttView({ user }) {
                     style={{
                       position: 'absolute',
                       left: offsetDays * pxPerDay,
-                      width: Math.max(durDays * pxPerDay, 4),
+                      width: barWidth,
                       top: 5,
                       height: 24,
                       background: t.couleur,
                       borderRadius: 5,
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.25)',
+                      boxShadow: done ? '0 0 0 2px var(--recette)' : '0 1px 2px rgba(0,0,0,0.25)',
+                      opacity: done ? 0.55 : 1,
+                      overflow: 'hidden',
                     }}
-                  />
+                  >
+                    {pct != null && pct > 0 && pct < 100 && (
+                      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: 'rgba(255,255,255,0.55)' }} />
+                    )}
+                    {done && (
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.7rem', fontWeight: 700 }}>
+                        ✓
+                      </div>
+                    )}
+                  </div>
                 </div>
               )
             })}
@@ -203,6 +227,10 @@ export default function GanttView({ user }) {
 
       <div style={{ marginTop: 18 }}>
         <div style={{ fontWeight: 700, fontSize: '0.8rem', marginBottom: 8 }}>Légende</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: '0.78rem', color: 'var(--ink-soft)' }}>
+          <div style={{ width: 16, height: 16, borderRadius: 4, background: 'var(--blueprint)', opacity: 0.55, boxShadow: '0 0 0 2px var(--recette)' }} />
+          Terminé (lié à l'Avancement)
+        </div>
         {Array.from(new Map(tasks.filter(t => !t.is_section).map(t => [t.couleur, t.designation])).entries()).map(([color, name]) => (
           <div key={color} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <div style={{ width: 16, height: 16, borderRadius: 4, background: color, flexShrink: 0 }} />
