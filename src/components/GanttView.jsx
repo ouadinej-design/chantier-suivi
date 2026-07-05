@@ -114,7 +114,7 @@ export default function GanttView({ user }) {
             return (
               <div
                 key={t.id}
-                onClick={() => isAdmin && !t.is_section && startEdit(t)}
+                onClick={() => !t.is_section && startEdit(t)}
                 style={{
                   height: t.is_section ? 26 : 34,
                   display: 'flex',
@@ -177,7 +177,7 @@ export default function GanttView({ user }) {
               return (
                 <div key={t.id} style={{ height: 34, position: 'relative', borderBottom: '1px solid var(--paper-line)' }}>
                   <div
-                    onClick={() => isAdmin && startEdit(t)}
+                    onClick={() => startEdit(t)}
                     style={{
                       position: 'absolute',
                       left: offsetDays * pxPerDay,
