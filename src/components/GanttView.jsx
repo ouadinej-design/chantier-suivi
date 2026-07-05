@@ -303,6 +303,8 @@ export default function GanttView({ user }) {
               const pct = cl ? Number(cl.avancement) : null
               const done = pct >= 100
               const isSelTask = selectedTask?.id === t.id
+              const todayISO = new Date().toISOString().slice(0, 10)
+              const isOverdue = t.fin < todayISO && !done
               return (
                 <div key={t.id} style={{ height: 34, position: 'relative', borderBottom: '1px solid var(--paper-line)' }}>
                   <div
@@ -315,11 +317,14 @@ export default function GanttView({ user }) {
                       height: 24,
                       background: t.couleur,
                       borderRadius: 5,
-                      boxShadow: isSelTask ? '0 0 0 2px var(--safety)' : done ? '0 0 0 2px var(--recette)' : '0 1px 2px rgba(0,0,0,0.25)',
+                      boxShadow: isSelTask ? '0 0 0 2px var(--safety)' : done ? '0 0 0 2px var(--recette)' : isOverdue ? '0 0 0 2px var(--depense)' : '0 1px 2px rgba(0,0,0,0.25)',
                       opacity: done ? 0.55 : 1,
                       overflow: 'hidden',
                     }}
                   >
+                    {isOverdue && (
+                      <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(45deg, rgba(176,35,23,0.35), rgba(176,35,23,0.35) 4px, transparent 4px, transparent 8px)' }} />
+                    )}
                     {pct != null && pct > 0 && pct < 100 && (
                       <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: 'rgba(255,255,255,0.55)' }} />
                     )}
@@ -434,6 +439,10 @@ export default function GanttView({ user }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: '0.78rem', color: 'var(--ink-soft)' }}>
           <div style={{ width: 16, height: 16, borderRadius: 4, background: 'var(--blueprint)', opacity: 0.55, boxShadow: '0 0 0 2px var(--recette)' }} />
           Terminé (lié à l'Avancement)
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: '0.78rem', color: 'var(--ink-soft)' }}>
+          <div style={{ width: 16, height: 16, borderRadius: 4, background: 'repeating-linear-gradient(45deg, var(--depense), var(--depense) 3px, #fff 3px, #fff 6px)', boxShadow: '0 0 0 2px var(--depense)' }} />
+          En retard (date de fin dépassée)
         </div>
         {Array.from(new Map(tasks.filter(t => !t.is_section).map(t => [t.couleur, t.designation])).entries()).map(([color, name]) => (
           <div key={color} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
