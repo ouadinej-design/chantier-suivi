@@ -50,7 +50,28 @@ export default function LotAccordion({ lot, etapes, user, onChanged }) {
     e.stopPropagation()
     const next = NEXT_STATUT[lot.statut] || 'En cours'
     const table = lot.parentTable === 'appartement_lots' ? 'appartement_lots' : 'checklist'
-    await supabase.from(table).update({ statut: next }).eq('id', lot.id)
+
+    if (next === 'Terminé') {
+      // Marquer toutes les étapes comme terminées → % passe à 100 automatiquement
+      const ids = etapes.map((e) => e.id)
+      if (ids.length) {
+        await supabase.from('etapes').update({ statut: 'Terminé' }).in('id', ids)
+      } else {
+        // Pas d'étape : on force directement le lot à 100%
+        await supabase.from(table).update({ statut: 'Terminé', avancement: 100 }).eq('id', lot.id)
+      }
+    } else if (next === 'En attente') {
+      // Remettre toutes les étapes à zéro → % repasse à 0 automatiquement
+      const ids = etapes.map((e) => e.id)
+      if (ids.length) {
+        await supabase.from('etapes').update({ statut: 'En attente' }).in('id', ids)
+      } else {
+        await supabase.from(table).update({ statut: 'En attente', avancement: 0 }).eq('id', lot.id)
+      }
+    } else {
+      // "En cours" : statut manuel, le % reste piloté par les étapes existantes
+      await supabase.from(table).update({ statut: 'En cours' }).eq('id', lot.id)
+    }
     onChanged && onChanged()
   }
 
