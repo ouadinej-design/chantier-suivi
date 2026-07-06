@@ -146,6 +146,7 @@ export default function Dashboard({ onRead }) {
   const caisse = benefice - totalRetraits
   const budgetLogements = budgets.filter((b) => b.section === 'logements')
   const budgetVrd = budgets.filter((b) => b.section === 'vrd')
+  const budgetAutre = budgets.filter((b) => b.section === 'autre')
   const budgetGlobal = budgets.reduce((a, b) => a + Number(b.montant || 0), 0)
 
   const avancementGlobal = checklist.length ? Math.round(checklist.reduce((a, c) => a + Number(c.avancement), 0) / checklist.length) : 0
@@ -202,6 +203,7 @@ export default function Dashboard({ onRead }) {
       <div style={{ marginTop: 22 }}>
         <BudgetSection title="Budget Logements par catégorie" section="logements" entries={entries} budgetRows={budgetLogements} onBudgetChange={handleBudgetChange} />
         <BudgetSection title="Budget VRD par catégorie" section="vrd" entries={entries} budgetRows={budgetVrd} onBudgetChange={handleBudgetChange} />
+        <BudgetSection title="Budget Autre par catégorie" section="autre" entries={entries} budgetRows={budgetAutre} onBudgetChange={handleBudgetChange} />
         <div style={{ fontSize: '0.72rem', color: 'var(--ink-soft)', marginTop: -12 }}>⚠ = montant à renseigner (pas encore chiffré)</div>
       </div>
 
