@@ -53,7 +53,7 @@ export default function Ledger({ user }) {
       e.auteur,
       e.beneficiaire || '',
       e.numero_facture || '',
-      e.section === 'logements' ? 'Logements' : e.section === 'vrd' ? 'VRD' : '',
+      e.section === 'logements' ? 'Logements' : e.section === 'vrd' ? 'VRD' : e.section === 'autre' ? 'Autre' : '',
       (e.commentaire || '').replace(/"/g, "'"),
     ])
     const csv = [header, ...rows].map((r) => r.map((v) => `"${v}"`).join(';')).join('\n')
@@ -163,7 +163,7 @@ export default function Ledger({ user }) {
                   {new Date(e.date).toLocaleDateString('fr-FR')} · {e.auteur}
                   {e.beneficiaire ? ` → ${e.beneficiaire}` : ''}
                   {e.numero_facture ? ` · Facture n° ${e.numero_facture}` : ''}
-                  {e.section ? ` · ${e.section === 'logements' ? 'Logements' : 'VRD'}` : ''}
+                  {e.section ? ` · ${e.section === 'logements' ? 'Logements' : e.section === 'vrd' ? 'VRD' : 'Autre'}` : ''}
                 </div>
                 {e.commentaire && <div className="ledger-meta">{e.commentaire}</div>}
                 {e.photo_url && (
