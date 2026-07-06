@@ -44,7 +44,7 @@ export default function Ledger({ user }) {
   const filtered = filter === 'tous' ? entries : entries.filter((e) => e.type === filter)
 
   function exportCSV() {
-    const header = ['Date', 'Type', 'Catégorie/Désignation', 'Montant (DA)', 'Auteur', 'Bénéficiaire', 'Commentaire']
+    const header = ['Date', 'Type', 'Catégorie/Désignation', 'Montant (DA)', 'Auteur', 'Bénéficiaire', 'N° Facture', 'Section', 'Commentaire']
     const rows = filtered.map((e) => [
       e.date,
       TYPE_LABELS[e.type],
@@ -52,6 +52,8 @@ export default function Ledger({ user }) {
       e.montant,
       e.auteur,
       e.beneficiaire || '',
+      e.numero_facture || '',
+      e.section === 'logements' ? 'Logements' : e.section === 'vrd' ? 'VRD' : '',
       (e.commentaire || '').replace(/"/g, "'"),
     ])
     const csv = [header, ...rows].map((r) => r.map((v) => `"${v}"`).join(';')).join('\n')
@@ -71,6 +73,7 @@ export default function Ledger({ user }) {
       montant: entry.montant,
       commentaire: entry.commentaire || '',
       date: entry.date,
+      numero_facture: entry.numero_facture || '',
     })
   }
 
@@ -85,6 +88,7 @@ export default function Ledger({ user }) {
       montant: Number(editDraft.montant),
       commentaire: editDraft.commentaire || null,
       date: editDraft.date,
+      numero_facture: editDraft.numero_facture || null,
     }
     await supabase.from('entries').update(patch).eq('id', id)
     setEditingId(null)
@@ -131,6 +135,12 @@ export default function Ledger({ user }) {
                 <label>Désignation</label>
                 <input type="text" value={editDraft.designation} onChange={(ev) => setEditDraft({ ...editDraft, designation: ev.target.value })} />
               </div>
+              {e.type === 'recette' && (
+                <div className="form-field">
+                  <label>N° Facture</label>
+                  <input type="text" value={editDraft.numero_facture} onChange={(ev) => setEditDraft({ ...editDraft, numero_facture: ev.target.value })} />
+                </div>
+              )}
               <div className="form-field">
                 <label>Montant (DA)</label>
                 <input type="number" step="0.01" value={editDraft.montant} onChange={(ev) => setEditDraft({ ...editDraft, montant: ev.target.value })} />
@@ -152,6 +162,8 @@ export default function Ledger({ user }) {
                 <div className="ledger-meta">
                   {new Date(e.date).toLocaleDateString('fr-FR')} · {e.auteur}
                   {e.beneficiaire ? ` → ${e.beneficiaire}` : ''}
+                  {e.numero_facture ? ` · Facture n° ${e.numero_facture}` : ''}
+                  {e.section ? ` · ${e.section === 'logements' ? 'Logements' : 'VRD'}` : ''}
                 </div>
                 {e.commentaire && <div className="ledger-meta">{e.commentaire}</div>}
                 {e.photo_url && (
