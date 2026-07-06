@@ -139,7 +139,7 @@ export default function TachesDuJour({ user }) {
       {activeTasks.map((t) => {
         const cl = t.checklist_id ? checklistById[t.checklist_id] : null
         const etapes = cl ? (etapesByLot[cl.id] || []) : []
-        const doneCount = etapes.filter((e) => e.fait).length
+        const doneCount = etapes.filter((e) => e.statut === 'Terminé').length
         const isOverdue = t.fin < todayISO && (!cl || Number(cl.avancement) < 100)
         return (
           <div key={t.id} style={{ marginBottom: 12 }}>
