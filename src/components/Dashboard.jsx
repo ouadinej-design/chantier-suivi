@@ -50,27 +50,28 @@ function BudgetSection({ title, section, entries, budgetRows, onBudgetChange }) 
   )
 }
 
-function BarChart({ recette, depense, budget }) {
-  const max = Math.max(recette, depense, budget, 1)
+function BarChart({ recette, depense, budget, benefice }) {
+  const max = Math.max(recette, depense, budget, Math.abs(benefice), 1)
   const bars = [
     { label: 'Recettes', value: recette, color: 'var(--recette)' },
     { label: 'Dépenses', value: depense, color: 'var(--depense)' },
+    { label: 'Bénéfice', value: benefice, color: benefice >= 0 ? 'var(--safety)' : 'var(--depense)' },
     { label: 'Budget global', value: budget, color: 'var(--blueprint)' },
   ]
   const chartHeight = 160
   return (
-    <div style={{ background: 'var(--card)', borderRadius: 12, border: '1px solid var(--paper-line)', padding: '16px 20px' }}>
+    <div style={{ background: 'var(--card)', borderRadius: 12, border: '1px solid var(--paper-line)', padding: '16px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: chartHeight }}>
         {bars.map((b) => (
           <div key={b.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1 }}>
-            <span style={{ fontSize: '0.64rem', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{formatDA(b.value)}</span>
-            <div style={{ width: 36, height: Math.max((b.value / max) * (chartHeight - 30), 3), background: b.color, borderRadius: '4px 4px 0 0' }} />
+            <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{formatDA(b.value)}</span>
+            <div style={{ width: 30, height: Math.max((Math.abs(b.value) / max) * (chartHeight - 30), 3), background: b.color, borderRadius: '4px 4px 0 0' }} />
           </div>
         ))}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 8 }}>
         {bars.map((b) => (
-          <span key={b.label} style={{ flex: 1, textAlign: 'center', fontSize: '0.68rem', color: 'var(--ink-soft)' }}>{b.label}</span>
+          <span key={b.label} style={{ flex: 1, textAlign: 'center', fontSize: '0.62rem', color: 'var(--ink-soft)' }}>{b.label}</span>
         ))}
       </div>
     </div>
@@ -196,7 +197,7 @@ export default function Dashboard({ onRead }) {
       </div>
 
       <div className="section-title">Recettes / Dépenses / Budget</div>
-      <BarChart recette={totalRecettes} depense={totalDepenses} budget={budgetGlobal} />
+      <BarChart recette={totalRecettes} depense={totalDepenses} budget={budgetGlobal} benefice={benefice} />
 
       <div style={{ marginTop: 22 }}>
         <BudgetSection title="Budget Logements par catégorie" section="logements" entries={entries} budgetRows={budgetLogements} onBudgetChange={handleBudgetChange} />
