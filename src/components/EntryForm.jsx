@@ -103,6 +103,7 @@ export default function EntryForm({ user, onSaved }) {
           <select value={section} onChange={(e) => setSection(e.target.value)}>
             <option value="logements">Logements</option>
             <option value="vrd">VRD</option>
+            <option value="autre">Autre</option>
           </select>
         </div>
       )}
