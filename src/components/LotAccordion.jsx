@@ -8,14 +8,41 @@ function statusClass(statut) {
 }
 
 const STATUTS = ['En attente', 'En cours', 'Terminé']
+const NEXT_STATUT = { 'En attente': 'En cours', 'En cours': 'Terminé', 'Terminé': 'En attente' }
+
+function EtapeIcon({ statut }) {
+  if (statut === 'Terminé') {
+    return (
+      <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--recette)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.8rem', flexShrink: 0 }}>
+        ✓
+      </div>
+    )
+  }
+  if (statut === 'En cours') {
+    return (
+      <div style={{
+        width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+        background: 'conic-gradient(var(--safety) 0deg 180deg, #E8E2D2 180deg 360deg)',
+      }} />
+    )
+  }
+  return <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#B9C0BB', flexShrink: 0 }} />
+}
+
+function statutColor(statut) {
+  if (statut === 'Terminé') return 'var(--recette)'
+  if (statut === 'En cours') return 'var(--safety)'
+  return 'var(--ink-soft)'
+}
 
 export default function LotAccordion({ lot, etapes, user, onChanged }) {
   const [open, setOpen] = useState(false)
   const [newTask, setNewTask] = useState('')
   const [adding, setAdding] = useState(false)
 
-  async function toggleEtape(etape) {
-    await supabase.from('etapes').update({ fait: !etape.fait }).eq('id', etape.id)
+  async function cycleEtape(etape) {
+    const next = NEXT_STATUT[etape.statut] || 'En cours'
+    await supabase.from('etapes').update({ statut: next }).eq('id', etape.id)
     onChanged && onChanged()
   }
 
@@ -37,6 +64,7 @@ export default function LotAccordion({ lot, etapes, user, onChanged }) {
       titre: newTask.trim(),
       ordre: maxOrdre + 1,
       is_custom: true,
+      statut: 'En attente',
     })
     setNewTask('')
     setAdding(false)
@@ -77,7 +105,7 @@ export default function LotAccordion({ lot, etapes, user, onChanged }) {
             fontSize: '0.75rem',
             fontWeight: 600,
             background: lot.statut === 'Terminé' ? 'var(--recette-bg)' : lot.statut === 'En cours' ? '#FFF3E0' : 'var(--card)',
-            color: lot.statut === 'Terminé' ? 'var(--recette)' : lot.statut === 'En cours' ? 'var(--safety)' : 'var(--ink-soft)',
+            color: statutColor(lot.statut),
           }}
         >
           {STATUTS.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -91,9 +119,14 @@ export default function LotAccordion({ lot, etapes, user, onChanged }) {
           )}
           {etapes.map((et) => (
             <div key={et.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
-              <input type="checkbox" checked={et.fait} onChange={() => toggleEtape(et)} style={{ width: 18, height: 18 }} />
-              <span style={{ flex: 1, fontSize: '0.86rem', textDecoration: et.fait ? 'line-through' : 'none', color: et.fait ? 'var(--ink-soft)' : 'var(--ink)' }}>
+              <button onClick={() => cycleEtape(et)} style={{ background: 'none', border: 'none', padding: 0 }} title="Toucher pour changer le statut">
+                <EtapeIcon statut={et.statut} />
+              </button>
+              <span style={{ flex: 1, fontSize: '0.86rem', textDecoration: et.statut === 'Terminé' ? 'line-through' : 'none', color: et.statut === 'Terminé' ? 'var(--ink-soft)' : 'var(--ink)' }}>
                 {et.titre}
+              </span>
+              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: statutColor(et.statut), flexShrink: 0 }}>
+                {et.statut}
               </span>
               {et.is_custom && (
                 <button onClick={() => removeTask(et.id)} style={{ background: 'none', border: 'none', fontSize: '0.8rem' }}>🗑️</button>
