@@ -14,6 +14,8 @@ export default function EntryForm({ user, onSaved }) {
   const [commentaire, setCommentaire] = useState('')
   const [photoFile, setPhotoFile] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
+  const [numeroFacture, setNumeroFacture] = useState('')
+  const [section, setSection] = useState('logements')
   const [saving, setSaving] = useState(false)
   const [confirmMsg, setConfirmMsg] = useState('')
 
@@ -49,6 +51,8 @@ export default function EntryForm({ user, onSaved }) {
       auteur: user.nom,
       commentaire: commentaire || null,
       photo_url,
+      numero_facture: type === 'recette' ? (numeroFacture || null) : null,
+      section: type === 'depense' ? section : null,
       lu: user.nom === 'Nej',
     }
 
@@ -62,6 +66,7 @@ export default function EntryForm({ user, onSaved }) {
       setCommentaire('')
       setPhotoFile(null)
       setPhotoPreview(null)
+      setNumeroFacture('')
       setTimeout(() => setConfirmMsg(''), 2000)
       onSaved && onSaved()
     } else {
@@ -93,12 +98,34 @@ export default function EntryForm({ user, onSaved }) {
         </div>
       )}
 
+      {type === 'depense' && (
+        <div className="form-field">
+          <label>Section du budget</label>
+          <select value={section} onChange={(e) => setSection(e.target.value)}>
+            <option value="logements">Logements</option>
+            <option value="vrd">VRD</option>
+          </select>
+        </div>
+      )}
+
       {type === 'retrait' && (
         <div className="form-field">
           <label>Bénéficiaire</label>
           <select value={beneficiaire} onChange={(e) => setBeneficiaire(e.target.value)}>
             {ASSOCIES.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
+        </div>
+      )}
+
+      {type === 'recette' && (
+        <div className="form-field">
+          <label>Numéro de facture</label>
+          <input
+            type="text"
+            placeholder="ex : FACT-2026-014"
+            value={numeroFacture}
+            onChange={(e) => setNumeroFacture(e.target.value)}
+          />
         </div>
       )}
 
