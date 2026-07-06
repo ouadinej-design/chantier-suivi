@@ -46,10 +46,11 @@ export default function LotAccordion({ lot, etapes, user, onChanged }) {
     onChanged && onChanged()
   }
 
-  async function changeStatut(e) {
+  async function cycleLotStatut(e) {
     e.stopPropagation()
+    const next = NEXT_STATUT[lot.statut] || 'En cours'
     const table = lot.parentTable === 'appartement_lots' ? 'appartement_lots' : 'checklist'
-    await supabase.from(table).update({ statut: e.target.value }).eq('id', lot.id)
+    await supabase.from(table).update({ statut: next }).eq('id', lot.id)
     onChanged && onChanged()
   }
 
@@ -94,23 +95,26 @@ export default function LotAccordion({ lot, etapes, user, onChanged }) {
         </div>
       </button>
 
-      <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 8 }}>
-        <select
-          value={lot.statut}
-          onChange={changeStatut}
-          style={{
-            padding: '6px 10px',
-            borderRadius: 8,
-            border: '1.5px solid var(--paper-line)',
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            background: lot.statut === 'Terminé' ? 'var(--recette-bg)' : lot.statut === 'En cours' ? '#FFF3E0' : 'var(--card)',
-            color: statutColor(lot.statut),
-          }}
-        >
-          {STATUTS.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </div>
+      <button
+        onClick={cycleLotStatut}
+        style={{
+          marginTop: 8,
+          padding: '8px 14px',
+          borderRadius: 999,
+          border: `1.5px solid ${statutColor(lot.statut)}`,
+          fontSize: '0.75rem',
+          fontWeight: 700,
+          background: lot.statut === 'Terminé' ? 'var(--recette-bg)' : lot.statut === 'En cours' ? '#FFF3E0' : 'var(--card)',
+          color: statutColor(lot.statut),
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        <EtapeIcon statut={lot.statut} />
+        <span>{lot.statut}</span>
+        <span style={{ opacity: 0.55, fontWeight: 400, fontSize: '0.68rem' }}>· toucher pour changer</span>
+      </button>
 
       {open && (
         <div style={{ marginTop: 10, borderTop: '1px dashed var(--paper-line)', paddingTop: 10 }}>
