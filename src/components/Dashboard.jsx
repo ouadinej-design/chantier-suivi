@@ -1,47 +1,43 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 
-const CATEGORIES = ["Matériaux", "Main d'œuvre", "Matériel", "Logistique", "Autres"]
-
 function formatDA(n) {
-  return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + ' DA'
+  return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n) + ' DA'
 }
 
-function BudgetSection({ title, section, entries, budgets, onBudgetChange }) {
+function BudgetSection({ title, section, entries, budgetRows, onBudgetChange }) {
   const depensesBySection = entries.filter((e) => e.type === 'depense' && e.section === section)
-  const totalBudget = CATEGORIES.reduce((a, c) => a + (budgets[`${section}:${c}`]?.montant || 0), 0)
+  const totalBudget = budgetRows.reduce((a, b) => a + Number(b.montant || 0), 0)
   const totalDepense = depensesBySection.reduce((a, e) => a + Number(e.montant), 0)
 
   return (
     <div style={{ marginBottom: 22 }}>
       <div className="section-title">{title}</div>
       <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--paper-line)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 1fr 1fr', gap: 0, padding: '8px 10px', background: 'var(--ink)', color: 'white', fontSize: '0.68rem', fontWeight: 700 }}>
-          <span>Catégorie</span>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr', gap: 0, padding: '8px 10px', background: 'var(--ink)', color: 'white', fontSize: '0.66rem', fontWeight: 700 }}>
+          <span>Poste</span>
           <span style={{ textAlign: 'right' }}>Budget</span>
           <span style={{ textAlign: 'right' }}>Dépensé</span>
           <span style={{ textAlign: 'right' }}>Écart</span>
         </div>
-        {CATEGORIES.map((c) => {
-          const key = `${section}:${c}`
-          const budget = budgets[key]?.montant || 0
-          const depense = depensesBySection.filter((e) => e.categorie === c).reduce((a, e) => a + Number(e.montant), 0)
-          const ecart = budget - depense
+        {budgetRows.map((b) => {
+          const depense = depensesBySection.filter((e) => e.categorie === b.categorie).reduce((a, e) => a + Number(e.montant), 0)
+          const ecart = Number(b.montant) - depense
           return (
-            <div key={c} style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 1fr 1fr', gap: 0, padding: '8px 10px', borderTop: '1px solid var(--paper-line)', alignItems: 'center', fontSize: '0.75rem' }}>
-              <span>{c}</span>
+            <div key={b.categorie} style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr', gap: 0, padding: '8px 10px', borderTop: '1px solid var(--paper-line)', alignItems: 'center', fontSize: '0.72rem' }}>
+              <span>{b.categorie}{Number(b.montant) === 0 && <span style={{ color: 'var(--safety)' }}> ⚠</span>}</span>
               <input
                 type="number"
-                value={budget}
-                onChange={(e) => onBudgetChange(section, c, e.target.value)}
-                style={{ textAlign: 'right', border: '1px solid var(--paper-line)', borderRadius: 6, padding: '4px 6px', fontSize: '0.72rem', width: '100%' }}
+                value={b.montant}
+                onChange={(e) => onBudgetChange(section, b.categorie, e.target.value)}
+                style={{ textAlign: 'right', border: '1px solid var(--paper-line)', borderRadius: 6, padding: '4px 6px', fontSize: '0.7rem', width: '100%' }}
               />
               <span style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatDA(depense)}</span>
               <span style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: ecart < 0 ? 'var(--depense)' : 'var(--recette)' }}>{formatDA(ecart)}</span>
             </div>
           )
         })}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 1fr 1fr', gap: 0, padding: '8px 10px', borderTop: '2px solid var(--ink)', fontWeight: 700, fontSize: '0.78rem', background: '#F5F3EC' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr', gap: 0, padding: '8px 10px', borderTop: '2px solid var(--ink)', fontWeight: 700, fontSize: '0.75rem', background: '#F5F3EC' }}>
           <span>Total</span>
           <span style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatDA(totalBudget)}</span>
           <span style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatDA(totalDepense)}</span>
@@ -59,7 +55,7 @@ function BarChart({ recette, depense, budget }) {
   const bars = [
     { label: 'Recettes', value: recette, color: 'var(--recette)' },
     { label: 'Dépenses', value: depense, color: 'var(--depense)' },
-    { label: 'Budget total', value: budget, color: 'var(--blueprint)' },
+    { label: 'Budget global', value: budget, color: 'var(--blueprint)' },
   ]
   const chartHeight = 160
   return (
@@ -67,14 +63,14 @@ function BarChart({ recette, depense, budget }) {
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: chartHeight }}>
         {bars.map((b) => (
           <div key={b.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1 }}>
-            <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{formatDA(b.value)}</span>
+            <span style={{ fontSize: '0.64rem', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{formatDA(b.value)}</span>
             <div style={{ width: 36, height: Math.max((b.value / max) * (chartHeight - 30), 3), background: b.color, borderRadius: '4px 4px 0 0' }} />
           </div>
         ))}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 8 }}>
         {bars.map((b) => (
-          <span key={b.label} style={{ flex: 1, textAlign: 'center', fontSize: '0.7rem', color: 'var(--ink-soft)' }}>{b.label}</span>
+          <span key={b.label} style={{ flex: 1, textAlign: 'center', fontSize: '0.68rem', color: 'var(--ink-soft)' }}>{b.label}</span>
         ))}
       </div>
     </div>
@@ -84,7 +80,7 @@ function BarChart({ recette, depense, budget }) {
 export default function Dashboard({ onRead }) {
   const [entries, setEntries] = useState([])
   const [overdueTasks, setOverdueTasks] = useState([])
-  const [budgets, setBudgets] = useState({})
+  const [budgets, setBudgets] = useState([])
   const [checklist, setChecklist] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -92,10 +88,8 @@ export default function Dashboard({ onRead }) {
     const { data, error } = await supabase.from('entries').select('*')
     if (!error) setEntries(data || [])
 
-    const { data: bg } = await supabase.from('budgets').select('*')
-    const bmap = {}
-    ;(bg || []).forEach((b) => { bmap[`${b.section}:${b.categorie}`] = b })
-    setBudgets(bmap)
+    const { data: bg } = await supabase.from('budgets').select('*').order('ordre', { ascending: true })
+    setBudgets(bg || [])
 
     const { data: cl } = await supabase.from('checklist').select('id, avancement')
     setChecklist(cl || [])
@@ -140,8 +134,8 @@ export default function Dashboard({ onRead }) {
 
   async function handleBudgetChange(section, categorie, value) {
     const montant = Number(value) || 0
-    setBudgets((prev) => ({ ...prev, [`${section}:${categorie}`]: { ...(prev[`${section}:${categorie}`] || {}), montant } }))
-    await supabase.from('budgets').upsert({ section, categorie, montant, updated_at: new Date().toISOString() }, { onConflict: 'section,categorie' })
+    setBudgets((prev) => prev.map((b) => (b.section === section && b.categorie === categorie ? { ...b, montant } : b)))
+    await supabase.from('budgets').update({ montant, updated_at: new Date().toISOString() }).eq('section', section).eq('categorie', categorie)
   }
 
   const totalRecettes = entries.filter((e) => e.type === 'recette').reduce((a, e) => a + Number(e.montant), 0)
@@ -149,7 +143,9 @@ export default function Dashboard({ onRead }) {
   const totalRetraits = entries.filter((e) => e.type === 'retrait').reduce((a, e) => a + Number(e.montant), 0)
   const benefice = totalRecettes - totalDepenses
   const caisse = benefice - totalRetraits
-  const totalBudget = Object.values(budgets).reduce((a, b) => a + Number(b.montant || 0), 0)
+  const budgetLogements = budgets.filter((b) => b.section === 'logements')
+  const budgetVrd = budgets.filter((b) => b.section === 'vrd')
+  const budgetGlobal = budgets.reduce((a, b) => a + Number(b.montant || 0), 0)
 
   const avancementGlobal = checklist.length ? Math.round(checklist.reduce((a, c) => a + Number(c.avancement), 0) / checklist.length) : 0
 
@@ -187,6 +183,12 @@ export default function Dashboard({ onRead }) {
         </div>
       </div>
 
+      <div className="section-title">Budget global du projet</div>
+      <div className="balance-card">
+        <div className="label">Total Logements + VRD</div>
+        <div className="amount">{formatDA(budgetGlobal)}</div>
+      </div>
+
       <div className="section-title">Avancement Global des Travaux</div>
       <div className="balance-card" style={{ background: 'var(--ink)' }}>
         <div className="label">Moyenne des 19 lots du chantier</div>
@@ -194,14 +196,15 @@ export default function Dashboard({ onRead }) {
       </div>
 
       <div className="section-title">Recettes / Dépenses / Budget</div>
-      <BarChart recette={totalRecettes} depense={totalDepenses} budget={totalBudget} />
+      <BarChart recette={totalRecettes} depense={totalDepenses} budget={budgetGlobal} />
 
       <div style={{ marginTop: 22 }}>
-        <BudgetSection title="Budget Logements par catégorie" section="logements" entries={entries} budgets={budgets} onBudgetChange={handleBudgetChange} />
-        <BudgetSection title="Budget VRD par catégorie" section="vrd" entries={entries} budgets={budgets} onBudgetChange={handleBudgetChange} />
+        <BudgetSection title="Budget Logements par catégorie" section="logements" entries={entries} budgetRows={budgetLogements} onBudgetChange={handleBudgetChange} />
+        <BudgetSection title="Budget VRD par catégorie" section="vrd" entries={entries} budgetRows={budgetVrd} onBudgetChange={handleBudgetChange} />
+        <div style={{ fontSize: '0.72rem', color: 'var(--ink-soft)', marginTop: -12 }}>⚠ = montant à renseigner (pas encore chiffré)</div>
       </div>
 
-      <div className="section-title">Retraits par associé</div>
+      <div className="section-title" style={{ marginTop: 22 }}>Retraits par associé</div>
       {parAssocie.map((a) => (
         <div className="associe-row" key={a.nom}>
           <span>{a.nom}</span>
