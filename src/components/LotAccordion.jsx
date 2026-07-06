@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { supabase } from '../supabaseClient'
 
 function statusClass(statut) {
-  if (statut === 'En Cours') return 'en-cours'
+  if (statut === 'En cours') return 'en-cours'
   if (statut === 'Terminé') return 'termine'
   return ''
 }
+
+const STATUTS = ['En attente', 'En cours', 'Terminé']
 
 export default function LotAccordion({ lot, etapes, user, onChanged }) {
   const [open, setOpen] = useState(false)
@@ -14,6 +16,13 @@ export default function LotAccordion({ lot, etapes, user, onChanged }) {
 
   async function toggleEtape(etape) {
     await supabase.from('etapes').update({ fait: !etape.fait }).eq('id', etape.id)
+    onChanged && onChanged()
+  }
+
+  async function changeStatut(e) {
+    e.stopPropagation()
+    const table = lot.parentTable === 'appartement_lots' ? 'appartement_lots' : 'checklist'
+    await supabase.from(table).update({ statut: e.target.value }).eq('id', lot.id)
     onChanged && onChanged()
   }
 
@@ -56,6 +65,24 @@ export default function LotAccordion({ lot, etapes, user, onChanged }) {
           <div className="progress-fill" style={{ width: `${lot.avancement}%` }} />
         </div>
       </button>
+
+      <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 8 }}>
+        <select
+          value={lot.statut}
+          onChange={changeStatut}
+          style={{
+            padding: '6px 10px',
+            borderRadius: 8,
+            border: '1.5px solid var(--paper-line)',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            background: lot.statut === 'Terminé' ? 'var(--recette-bg)' : lot.statut === 'En cours' ? '#FFF3E0' : 'var(--card)',
+            color: lot.statut === 'Terminé' ? 'var(--recette)' : lot.statut === 'En cours' ? 'var(--safety)' : 'var(--ink-soft)',
+          }}
+        >
+          {STATUTS.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
 
       {open && (
         <div style={{ marginTop: 10, borderTop: '1px dashed var(--paper-line)', paddingTop: 10 }}>
