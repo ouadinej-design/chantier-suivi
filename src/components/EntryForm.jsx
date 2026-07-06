@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 
-const CATEGORIES = ["Matériaux", "Main d'œuvre", "Matériel", "Logistique", "Autres"]
 const ASSOCIES = ['Takiedine', 'Salah', 'Nej']
 
 export default function EntryForm({ user, onSaved }) {
   const [type, setType] = useState('depense')
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [categorie, setCategorie] = useState(CATEGORIES[0])
+  const [section, setSection] = useState('logements')
+  const [categories, setCategories] = useState([])
+  const [categorie, setCategorie] = useState('')
   const [designation, setDesignation] = useState('')
   const [montant, setMontant] = useState('')
   const [beneficiaire, setBeneficiaire] = useState(ASSOCIES[0])
@@ -15,9 +16,16 @@ export default function EntryForm({ user, onSaved }) {
   const [photoFile, setPhotoFile] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
   const [numeroFacture, setNumeroFacture] = useState('')
-  const [section, setSection] = useState('logements')
   const [saving, setSaving] = useState(false)
   const [confirmMsg, setConfirmMsg] = useState('')
+
+  useEffect(() => {
+    supabase.from('budgets').select('categorie').eq('section', section).order('ordre', { ascending: true }).then(({ data }) => {
+      const list = (data || []).map((b) => b.categorie)
+      setCategories(list)
+      setCategorie(list[0] || '')
+    })
+  }, [section])
 
   function handlePhoto(e) {
     const file = e.target.files?.[0]
@@ -91,19 +99,19 @@ export default function EntryForm({ user, onSaved }) {
 
       {type === 'depense' && (
         <div className="form-field">
-          <label>Catégorie</label>
-          <select value={categorie} onChange={(e) => setCategorie(e.target.value)}>
-            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          <label>Section du budget</label>
+          <select value={section} onChange={(e) => setSection(e.target.value)}>
+            <option value="logements">Logements</option>
+            <option value="vrd">VRD</option>
           </select>
         </div>
       )}
 
       {type === 'depense' && (
         <div className="form-field">
-          <label>Section du budget</label>
-          <select value={section} onChange={(e) => setSection(e.target.value)}>
-            <option value="logements">Logements</option>
-            <option value="vrd">VRD</option>
+          <label>Poste budgétaire</label>
+          <select value={categorie} onChange={(e) => setCategorie(e.target.value)}>
+            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
       )}
