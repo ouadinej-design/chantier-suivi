@@ -23,10 +23,28 @@ function colId(name) {
   return id
 }
 
+// Appwrite expose l'identifiant du document sous "$id" (attribut système),
+// jamais sous "id". On traduit donc tout filtre/champ "id" vers "$id".
+function mapField(field) {
+  return field === 'id' ? '$id' : field
+}
+
+// Ajoute un alias `id` (= $id) sur chaque document lu, pour que le code
+// applicatif (écrit à l'origine pour Postgres/Supabase) continue de
+// fonctionner sans modification (row.id partout).
+function withIdAlias(doc) {
+  if (!doc) return doc
+  return { ...doc, id: doc.$id }
+}
+
 // --- Helpers DB internes ---
 async function updateByFilter(table, patch, field, value) {
   try {
-    const list = await databases.listDocuments(DB_ID, colId(table), [Query.equal(field, [value])])
+    if (field === 'id') {
+      const doc = await databases.updateDocument(DB_ID, colId(table), value, patch)
+      return { data: withIdAlias(doc), error: null }
+    }
+    const list = await databases.listDocuments(DB_ID, colId(table), [Query.equal(mapField(field), [value])])
     for (const doc of list.documents) {
       await databases.updateDocument(DB_ID, colId(table), doc.$id, patch)
     }
@@ -51,7 +69,11 @@ async function updateByIds(table, patch, ids) {
 
 async function deleteByFilter(table, field, value) {
   try {
-    const list = await databases.listDocuments(DB_ID, colId(table), [Query.equal(field, [value])])
+    if (field === 'id') {
+      await databases.deleteDocument(DB_ID, colId(table), value)
+      return { data: null, error: null }
+    }
+    const list = await databases.listDocuments(DB_ID, colId(table), [Query.equal(mapField(field), [value])])
     for (const doc of list.documents) {
       await databases.deleteDocument(DB_ID, colId(table), doc.$id)
     }
@@ -92,22 +114,22 @@ class QueryBuilder {
   }
 
   eq(field, value) {
-    this._queries.push(Query.equal(field, [value]))
+    this._queries.push(Query.equal(mapField(field), [value]))
     return this
   }
 
   neq(field, value) {
-    this._queries.push(Query.notEqual(field, [value]))
+    this._queries.push(Query.notEqual(mapField(field), [value]))
     return this
   }
 
   gt(field, value) {
-    this._queries.push(Query.greaterThan(field, value))
+    this._queries.push(Query.greaterThan(mapField(field), value))
     return this
   }
 
   lt(field, value) {
-    this._queries.push(Query.lessThan(field, value))
+    this._queries.push(Query.lessThan(mapField(field), value))
     return this
   }
 
@@ -116,12 +138,12 @@ class QueryBuilder {
       this._queries.push(Query.equal('__never__', ['__never__']))
       return this
     }
-    this._queries.push(Query.equal(field, values))
+    this._queries.push(Query.equal(mapField(field), values))
     return this
   }
 
   order(field, opts = {}) {
-    this._orderByField = field
+    this._orderByField = mapField(field)
     this._orderByAsc = opts.ascending !== false
     return this
   }
@@ -139,13 +161,13 @@ class QueryBuilder {
       const response = await databases.listDocuments(
         DB_ID,
         colId(this._table),
-        [...this._queries, ...sort]
+        [...this._queries, ...sort, Query.limit(1000)]
       )
 
       if (this._headOnly) {
         return { data: null, error: null, count: response.total }
       }
-      return { data: response.documents, error: null, count: response.total }
+      return { data: response.documents.map(withIdAlias), error: null, count: response.total }
     } catch (err) {
       console.error(`Erreur ${this._table}:`, err)
       return { data: null, error: err, count: null }
@@ -223,7 +245,7 @@ export const supabase = {
               payload,
               [Permission.read(Role.any()), Permission.update(Role.any()), Permission.delete(Role.any())]
             )
-            return { data, error: null }
+            return { data: withIdAlias(data), error: null }
           } catch (err) {
             console.error(`Erreur insert ${table}:`, err)
             return { data: null, error: err }
