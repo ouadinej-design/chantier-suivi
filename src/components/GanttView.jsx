@@ -52,15 +52,20 @@ export default function GanttView({ user }) {
     ;(cl || []).forEach((c) => { map[c.id] = c })
     setChecklistById(map)
 
-    const ids = (cl || []).map((c) => c.id)
-    if (ids.length) {
-      const { data: et } = await supabase.from('etapes').select('*').eq('parent_table', 'checklist').in('parent_id', ids).order('ordre', { ascending: true })
-      const grouped = {}
+    // Les étapes sont liées via une clé stable (numéro du lot), pas l'identifiant
+    // technique de la base (qui peut changer lors d'une migration).
+    const stableKeys = (cl || []).map((c) => String(c.numero))
+    if (stableKeys.length) {
+      const { data: et } = await supabase.from('etapes').select('*').eq('parent_table', 'checklist').in('parent_id', stableKeys).order('ordre', { ascending: true })
+      const groupedByNumero = {}
       ;(et || []).forEach((e) => {
-        grouped[e.parent_id] = grouped[e.parent_id] || []
-        grouped[e.parent_id].push(e)
+        groupedByNumero[e.parent_id] = groupedByNumero[e.parent_id] || []
+        groupedByNumero[e.parent_id].push(e)
       })
-      setEtapesByChecklist(grouped)
+      // Ré-expose sous l'index habituel (id réel) pour ne pas toucher au reste du composant
+      const groupedById = {}
+      ;(cl || []).forEach((c) => { groupedById[c.id] = groupedByNumero[String(c.numero)] || [] })
+      setEtapesByChecklist(groupedById)
     }
     setLoading(false)
   }, [])
@@ -381,7 +386,7 @@ export default function GanttView({ user }) {
           </div>
           {selectedLot ? (
             <LotAccordion
-              lot={{ ...selectedLot, parentTable: 'checklist' }}
+              lot={{ ...selectedLot, parentTable: 'checklist', stableKey: String(selectedLot.numero) }}
               etapes={selectedEtapes}
               user={user}
               onChanged={load}
