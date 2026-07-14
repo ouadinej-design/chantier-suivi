@@ -140,6 +140,7 @@ export default function GanttView({ user }) {
   async function saveEdit(id) {
     await supabase.from('gantt_taches').update({ debut: editDraft.debut, fin: editDraft.fin, updated_by: user.nom, updated_at: new Date().toISOString() }).eq('id', id)
     setEditingId(null)
+    await load()
   }
 
   function shiftDateStr(dateStr, days) {
@@ -172,6 +173,7 @@ export default function GanttView({ user }) {
     }
     setEditingId(null)
     setDelayDays('')
+    await load()
   }
 
   function openPeriod(unit) {
