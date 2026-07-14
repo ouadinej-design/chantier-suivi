@@ -91,7 +91,7 @@ export default function LotAccordion({ lot, etapes, user, onChanged }) {
     const maxOrdre = etapes.reduce((m, e) => Math.max(m, e.ordre || 0), 0)
     await supabase.from('etapes').insert({
       parent_table: lot.parentTable,
-      parent_id: lot.id,
+      parent_id: lot.stableKey ?? lot.id,
       titre: newTask.trim(),
       ordre: maxOrdre + 1,
       is_custom: true,
