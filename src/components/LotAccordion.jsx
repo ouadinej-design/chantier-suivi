@@ -42,46 +42,50 @@ export default function LotAccordion({ lot, etapes, user, onChanged }) {
 
   const table = lot.parentTable === 'appartement_lots' ? 'appartement_lots' : 'checklist'
 
-  // Recalcule et pousse le % + statut du lot à partir d'une liste d'étapes donnée
+  // Recalcule le % + statut du lot à partir d'une liste d'étapes, pousse en base
+  // ET met à jour l'écran immédiatement (sans dépendre d'un rechargement réseau)
   async function recalcParent(etapesList) {
     const total = etapesList.length
     const done = etapesList.filter((e) => e.statut === 'Terminé').length
     const pct = total === 0 ? 0 : Math.round((done / total) * 10000) / 100
     const newStatut = total > 0 && pct >= 100 ? 'Terminé' : pct > 0 ? 'En cours' : 'En attente'
     await supabase.from(table).update({ avancement: pct, statut: newStatut }).eq('id', lot.id)
+    return { avancement: pct, statut: newStatut }
   }
 
   async function cycleEtape(etape) {
     const next = NEXT_STATUT[etape.statut] || 'En cours'
     await supabase.from('etapes').update({ statut: next }).eq('id', etape.id)
     const updated = etapes.map((e) => (e.id === etape.id ? { ...e, statut: next } : e))
-    await recalcParent(updated)
-    onChanged && onChanged()
+    const patch = await recalcParent(updated)
+    onChanged && onChanged(lot.id, patch, updated)
   }
 
   async function cycleLotStatut(e) {
     e.stopPropagation()
     const next = NEXT_STATUT[lot.statut] || 'En cours'
+    let updatedEtapes = etapes
 
     if (next === 'Terminé') {
-      // Marquer toutes les étapes comme terminées → % passe à 100
       const ids = etapes.map((e) => e.id)
       if (ids.length) {
         await supabase.from('etapes').update({ statut: 'Terminé' }).in('id', ids)
+        updatedEtapes = etapes.map((e) => ({ ...e, statut: 'Terminé' }))
       }
       await supabase.from(table).update({ statut: 'Terminé', avancement: 100 }).eq('id', lot.id)
+      onChanged && onChanged(lot.id, { statut: 'Terminé', avancement: 100 }, updatedEtapes)
     } else if (next === 'En attente') {
-      // Remettre toutes les étapes à zéro → % repasse à 0
       const ids = etapes.map((e) => e.id)
       if (ids.length) {
         await supabase.from('etapes').update({ statut: 'En attente' }).in('id', ids)
+        updatedEtapes = etapes.map((e) => ({ ...e, statut: 'En attente' }))
       }
       await supabase.from(table).update({ statut: 'En attente', avancement: 0 }).eq('id', lot.id)
+      onChanged && onChanged(lot.id, { statut: 'En attente', avancement: 0 }, updatedEtapes)
     } else {
-      // "En cours" : statut manuel, le % reste piloté par les étapes existantes
       await supabase.from(table).update({ statut: 'En cours' }).eq('id', lot.id)
+      onChanged && onChanged(lot.id, { statut: 'En cours' }, updatedEtapes)
     }
-    onChanged && onChanged()
   }
 
   async function addTask(e) {
@@ -89,7 +93,7 @@ export default function LotAccordion({ lot, etapes, user, onChanged }) {
     if (!newTask.trim()) return
     setAdding(true)
     const maxOrdre = etapes.reduce((m, e) => Math.max(m, e.ordre || 0), 0)
-    await supabase.from('etapes').insert({
+    const { data: created } = await supabase.from('etapes').insert({
       parent_table: lot.parentTable,
       parent_id: lot.stableKey ?? lot.id,
       titre: newTask.trim(),
@@ -97,16 +101,18 @@ export default function LotAccordion({ lot, etapes, user, onChanged }) {
       is_custom: true,
       statut: 'En attente',
     })
-    await recalcParent([...etapes, { statut: 'En attente' }])
+    const updated = [...etapes, created || { id: `temp-${Date.now()}`, titre: newTask.trim(), statut: 'En attente', is_custom: true }]
+    const patch = await recalcParent(updated)
     setNewTask('')
     setAdding(false)
-    onChanged && onChanged()
+    onChanged && onChanged(lot.id, patch, updated)
   }
 
   async function removeTask(etapeId) {
     await supabase.from('etapes').delete().eq('id', etapeId)
-    await recalcParent(etapes.filter((e) => e.id !== etapeId))
-    onChanged && onChanged()
+    const updated = etapes.filter((e) => e.id !== etapeId)
+    const patch = await recalcParent(updated)
+    onChanged && onChanged(lot.id, patch, updated)
   }
 
   return (
