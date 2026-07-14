@@ -14,7 +14,7 @@ export default function ChecklistChantier({ user }) {
       .from('etapes')
       .select('*')
       .eq('parent_table', 'checklist')
-      .in('parent_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000'])
+      .in('parent_id', ids.length ? ids : ['__none__'])
       .order('ordre', { ascending: true })
 
     const grouped = {}
