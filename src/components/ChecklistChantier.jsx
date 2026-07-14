@@ -38,6 +38,16 @@ export default function ChecklistChantier({ user }) {
     return () => supabase.removeChannel(channel)
   }, [load])
 
+  // Met à jour l'écran immédiatement à partir du patch renvoyé par LotAccordion,
+  // sans attendre un rechargement réseau (plus fiable que le temps réel Appwrite)
+  const handleChanged = useCallback((lotId, patch, updatedEtapes) => {
+    if (!lotId) { load(); return }
+    setLots((prev) => prev.map((l) => (l.id === lotId ? { ...l, ...patch } : l)))
+    if (updatedEtapes) {
+      setEtapesByLot((prev) => ({ ...prev, [lotId]: updatedEtapes }))
+    }
+  }, [load])
+
   if (loading) return <div className="empty-state">Chargement…</div>
 
   const globalPct = lots.length ? Math.round(lots.reduce((a, l) => a + Number(l.avancement), 0) / lots.length) : 0
@@ -54,7 +64,7 @@ export default function ChecklistChantier({ user }) {
           lot={{ ...lot, parentTable: 'checklist' }}
           etapes={etapesByLot[lot.id] || []}
           user={user}
-          onChanged={load}
+          onChanged={handleChanged}
         />
       ))}
     </div>
