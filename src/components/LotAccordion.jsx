@@ -40,34 +40,43 @@ export default function LotAccordion({ lot, etapes, user, onChanged }) {
   const [newTask, setNewTask] = useState('')
   const [adding, setAdding] = useState(false)
 
+  const table = lot.parentTable === 'appartement_lots' ? 'appartement_lots' : 'checklist'
+
+  // Recalcule et pousse le % + statut du lot à partir d'une liste d'étapes donnée
+  async function recalcParent(etapesList) {
+    const total = etapesList.length
+    const done = etapesList.filter((e) => e.statut === 'Terminé').length
+    const pct = total === 0 ? 0 : Math.round((done / total) * 10000) / 100
+    const newStatut = total > 0 && pct >= 100 ? 'Terminé' : pct > 0 ? 'En cours' : 'En attente'
+    await supabase.from(table).update({ avancement: pct, statut: newStatut }).eq('id', lot.id)
+  }
+
   async function cycleEtape(etape) {
     const next = NEXT_STATUT[etape.statut] || 'En cours'
     await supabase.from('etapes').update({ statut: next }).eq('id', etape.id)
+    const updated = etapes.map((e) => (e.id === etape.id ? { ...e, statut: next } : e))
+    await recalcParent(updated)
     onChanged && onChanged()
   }
 
   async function cycleLotStatut(e) {
     e.stopPropagation()
     const next = NEXT_STATUT[lot.statut] || 'En cours'
-    const table = lot.parentTable === 'appartement_lots' ? 'appartement_lots' : 'checklist'
 
     if (next === 'Terminé') {
-      // Marquer toutes les étapes comme terminées → % passe à 100 automatiquement
+      // Marquer toutes les étapes comme terminées → % passe à 100
       const ids = etapes.map((e) => e.id)
       if (ids.length) {
         await supabase.from('etapes').update({ statut: 'Terminé' }).in('id', ids)
-      } else {
-        // Pas d'étape : on force directement le lot à 100%
-        await supabase.from(table).update({ statut: 'Terminé', avancement: 100 }).eq('id', lot.id)
       }
+      await supabase.from(table).update({ statut: 'Terminé', avancement: 100 }).eq('id', lot.id)
     } else if (next === 'En attente') {
-      // Remettre toutes les étapes à zéro → % repasse à 0 automatiquement
+      // Remettre toutes les étapes à zéro → % repasse à 0
       const ids = etapes.map((e) => e.id)
       if (ids.length) {
         await supabase.from('etapes').update({ statut: 'En attente' }).in('id', ids)
-      } else {
-        await supabase.from(table).update({ statut: 'En attente', avancement: 0 }).eq('id', lot.id)
       }
+      await supabase.from(table).update({ statut: 'En attente', avancement: 0 }).eq('id', lot.id)
     } else {
       // "En cours" : statut manuel, le % reste piloté par les étapes existantes
       await supabase.from(table).update({ statut: 'En cours' }).eq('id', lot.id)
@@ -88,6 +97,7 @@ export default function LotAccordion({ lot, etapes, user, onChanged }) {
       is_custom: true,
       statut: 'En attente',
     })
+    await recalcParent([...etapes, { statut: 'En attente' }])
     setNewTask('')
     setAdding(false)
     onChanged && onChanged()
@@ -95,6 +105,7 @@ export default function LotAccordion({ lot, etapes, user, onChanged }) {
 
   async function removeTask(etapeId) {
     await supabase.from('etapes').delete().eq('id', etapeId)
+    await recalcParent(etapes.filter((e) => e.id !== etapeId))
     onChanged && onChanged()
   }
 
