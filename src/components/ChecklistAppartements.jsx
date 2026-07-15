@@ -64,10 +64,12 @@ export default function ChecklistAppartements({ user }) {
   useEffect(() => {
     if (selected == null) return
     loadDetail(selected)
+    // On ne souscrit qu'aux changements de appartement_lots (pas etapes)
+    // pour éviter que chaque coche d'étape ne recharge tout et ferme les accordéons ouverts.
+    // Les étapes sont gérées de façon optimiste via handleChanged.
     const channel = supabase
       .channel(`appartement-${selected}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'appartement_lots' }, () => loadDetail(selected))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'etapes' }, () => loadDetail(selected))
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [selected, loadDetail])
