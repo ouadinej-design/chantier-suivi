@@ -34,8 +34,8 @@ export default function ChecklistAppartements({ user }) {
     return () => supabase.removeChannel(channel)
   }, [loadOverview])
 
-  const loadDetail = useCallback(async (numero) => {
-    setLoadingDetail(true)
+  const loadDetail = useCallback(async (numero, silent = false) => {
+    if (!silent) setLoadingDetail(true)
     const { data: lotsData } = await supabase
       .from('appartement_lots')
       .select('*')
@@ -69,7 +69,7 @@ export default function ChecklistAppartements({ user }) {
     // Les étapes sont gérées de façon optimiste via handleChanged.
     const channel = supabase
       .channel(`appartement-${selected}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'appartement_lots' }, () => loadDetail(selected))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appartement_lots' }, () => loadDetail(selected, true))
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [selected, loadDetail])
@@ -82,7 +82,7 @@ export default function ChecklistAppartements({ user }) {
       await supabase.from('appartement_lots').update({ statut: 'En attente', avancement: 0 }).eq('id', id)
     }
     await supabase.from('etapes').update({ statut: 'En attente' }).eq('parent_table', 'appartement_lots').in('parent_id', ids)
-    await loadDetail(selected)
+    await loadDetail(selected, true)
     setOverview((prev) => ({ ...prev, [selected]: 0 }))
   }, [lots, selected, loadDetail])
 
