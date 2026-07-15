@@ -25,12 +25,17 @@ function EtapeIcon({ statut }) {
   return <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#B9C0BB', flexShrink: 0 }} />
 }
 
-export default function LotAccordion({ lot, etapes, user, onChanged, onReset }) {
-  const [open, setOpen] = useState(false)
+export default function LotAccordion({ lot, etapes, user, onChanged, onReset, openState, onOpenChange }) {
+  const [openInternal, setOpenInternal] = useState(false)
   const [newTask, setNewTask] = useState('')
   const [adding, setAdding] = useState(false)
   const [showReset, setShowReset] = useState(false)
   const [resetting, setResetting] = useState(false)
+
+  // Si le parent contrôle l'état ouvert (appartements), on utilise openState
+  // Sinon on utilise l'état interne (lots globaux)
+  const open = onOpenChange ? openState : openInternal
+  const setOpen = onOpenChange ? onOpenChange : setOpenInternal
 
   const table = lot.parentTable === 'appartement_lots' ? 'appartement_lots' : 'checklist'
 
