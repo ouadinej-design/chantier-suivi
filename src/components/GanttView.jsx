@@ -371,14 +371,58 @@ export default function GanttView({ user }) {
 
       {/* Panneau : détail d'une tâche (étapes liées à l'Avancement) */}
       {selectedTask && (
-        <div style={{ marginTop: 14 }}>
+        <div style={{ marginTop: 14, background: 'var(--card)', borderRadius: 12, padding: 14, border: '1.5px solid var(--paper-line)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{selectedTask.designation}</div>
-            <button onClick={() => setSelectedTask(null)} style={{ background: 'none', border: 'none', fontSize: '1rem' }}>✕</button>
+            <button onClick={() => { setSelectedTask(null); setEditingId(null) }} style={{ background: 'none', border: 'none', fontSize: '1rem' }}>✕</button>
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--ink-soft)', marginBottom: 10 }}>
-            {fmt(toDate(selectedTask.debut))} → {fmt(toDate(selectedTask.fin))}
-          </div>
+
+          {/* Dates avec bouton modifier intégré */}
+          {editingId === selectedTask.id ? (
+            <div>
+              <div className="form-field">
+                <label>Début</label>
+                <input type="date" value={editDraft.debut || ''} onChange={(e) => setEditDraft({ ...editDraft, debut: e.target.value })} />
+              </div>
+              <div className="form-field">
+                <label>Fin</label>
+                <input type="date" value={editDraft.fin || ''} onChange={(e) => setEditDraft({ ...editDraft, fin: e.target.value })} />
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                <button className="submit-btn" style={{ background: 'var(--recette)' }} onClick={() => saveEdit(selectedTask.id)}>Enregistrer</button>
+                <button className="submit-btn" style={{ background: 'var(--ink-soft)' }} onClick={() => setEditingId(null)}>Annuler</button>
+              </div>
+
+              <div style={{ borderTop: '1px dashed var(--paper-line)', paddingTop: 12 }}>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: 8, color: 'var(--safety)' }}>⏱ En cas de retard</div>
+                <div className="form-field">
+                  <label>Nombre de jours de retard</label>
+                  <input type="number" min="1" placeholder="ex : 5" value={delayDays} onChange={(e) => setDelayDays(e.target.value)} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <button className="submit-btn" style={{ background: 'var(--safety)' }} disabled={!delayDays} onClick={() => applyDelay(false)}>
+                    Décaler cette tâche de {delayDays || '…'} j
+                  </button>
+                  <button className="submit-btn" style={{ background: 'var(--depense)' }} disabled={!delayDays} onClick={() => applyDelay(true)}>
+                    Décaler cette tâche + toutes les suivantes
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ fontSize: '0.78rem', color: 'var(--ink-soft)' }}>
+                {fmt(toDate(selectedTask.debut))} → {fmt(toDate(selectedTask.fin))}
+              </div>
+              <button
+                onClick={() => startEdit(selectedTask)}
+                style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid var(--blueprint)', background: 'transparent', color: 'var(--blueprint)', fontSize: '0.78rem', fontWeight: 600 }}
+              >
+                ✏️ Modifier les dates
+              </button>
+            </div>
+          )}
+
           {selectedLot ? (
             <LotAccordion
               lot={{ ...selectedLot, parentTable: 'checklist' }}
@@ -392,7 +436,8 @@ export default function GanttView({ user }) {
         </div>
       )}
 
-      {editingId && (
+      {/* Ancien panneau modification dates standalone (conservé pour compatibilité si editingId sans selectedTask) */}
+      {editingId && !selectedTask && (
         <div style={{ marginTop: 14, background: 'var(--card)', borderRadius: 12, padding: 14, border: '1.5px solid var(--paper-line)' }}>
           <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: 10 }}>Modifier les dates</div>
           <div className="form-field">
