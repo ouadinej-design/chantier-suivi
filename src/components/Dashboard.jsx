@@ -1,8 +1,5 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
-import { databases } from '../lib/appwrite'
-import { DB_ID, COL } from '../lib/config'
-import { Query } from 'appwrite'
 
 function formatDA(n) {
   return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n) + ' DA'
