@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { databases } from '../lib/appwrite'
+import { DB_ID, COL } from '../lib/config'
+import { Query } from 'appwrite'
 
 function formatDA(n) {
   return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n) + ' DA'
@@ -84,6 +87,7 @@ export default function Dashboard({ onRead }) {
   const [budgets, setBudgets] = useState([])
   const [checklist, setChecklist] = useState([])
   const [loading, setLoading] = useState(true)
+  const [resetState, setResetState] = useState('idle') // idle | confirm | running | done
 
   async function load() {
     const { data, error } = await supabase.from('entries').select('*')
@@ -132,6 +136,54 @@ export default function Dashboard({ onRead }) {
       })
     }
   }, [entries])
+
+  async function resetTousAppartements() {
+    setResetState('running')
+    try {
+
+      // 1. Récupérer tous les IDs de lots d'appartements (950)
+      let allLotIds = [], offset = 0
+      while (true) {
+        const res = await databases.listDocuments(DB_ID, COL.appartement_lots, [
+          Query.limit(100), Query.offset(offset)
+        ])
+        allLotIds = allLotIds.concat(res.documents.map(d => d.$id))
+        if (allLotIds.length >= res.total) break
+        offset += 100
+      }
+
+      // 2. Reset chaque lot
+      for (const id of allLotIds) {
+        await databases.updateDocument(DB_ID, COL.appartement_lots, id, {
+          statut: 'En attente', avancement: 0
+        })
+      }
+
+      // 3. Récupérer tous les IDs d'étapes appartements (2500)
+      let allEtapeIds = []
+      offset = 0
+      while (true) {
+        const res = await databases.listDocuments(DB_ID, COL.etapes, [
+          Query.equal('parent_table', ['appartement_lots']),
+          Query.limit(100), Query.offset(offset)
+        ])
+        allEtapeIds = allEtapeIds.concat(res.documents.map(d => d.$id))
+        if (allEtapeIds.length >= res.total) break
+        offset += 100
+      }
+
+      // 4. Reset chaque étape
+      for (const id of allEtapeIds) {
+        await databases.updateDocument(DB_ID, COL.etapes, id, { statut: 'En attente' })
+      }
+
+      setResetState('done')
+      setTimeout(() => setResetState('idle'), 4000)
+    } catch (err) {
+      console.error('Reset error:', err)
+      setResetState('idle')
+    }
+  }
 
   async function handleBudgetChange(section, categorie, value) {
     const montant = Number(value) || 0
@@ -224,7 +276,59 @@ export default function Dashboard({ onRead }) {
         </div>
       ))}
 
-      <div className="section-title" style={{ marginTop: 22 }}>⚠ Tâches en retard</div>
+      <div className="section-title" style={{ marginTop: 22 }}>🔄 Outils admin</div>
+
+      {resetState === 'idle' && (
+        <button
+          onClick={() => setResetState('confirm')}
+          style={{ width: '100%', padding: '14px', borderRadius: 12, border: '1.5px dashed var(--depense)', background: 'transparent', color: 'var(--depense)', fontWeight: 700, fontSize: '0.85rem' }}
+        >
+          🗂 Réinitialiser tous les appartements (50 × 19 lots)
+        </button>
+      )}
+
+      {resetState === 'confirm' && (
+        <div style={{ background: '#FDECEA', border: '1.5px solid var(--depense)', borderRadius: 12, padding: 16 }}>
+          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--depense)', marginBottom: 8 }}>
+            ⚠ Confirmer la réinitialisation
+          </div>
+          <p style={{ fontSize: '0.8rem', marginBottom: 14, color: 'var(--ink)' }}>
+            Cela va remettre à zéro l'avancement des <strong>50 appartements × 19 lots = 950 lots</strong> et leurs <strong>2500 étapes</strong>.
+            Cette action est irréversible.
+          </p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={resetTousAppartements}
+              style={{ flex: 1, padding: '12px', borderRadius: 10, border: 'none', background: 'var(--depense)', color: 'white', fontWeight: 700, fontSize: '0.85rem' }}
+            >
+              Oui, réinitialiser tout
+            </button>
+            <button
+              onClick={() => setResetState('idle')}
+              style={{ padding: '12px 16px', borderRadius: 10, border: '1px solid var(--paper-line)', background: 'transparent', color: 'var(--ink-soft)', fontWeight: 600 }}
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
+      {resetState === 'running' && (
+        <div style={{ background: '#FFF3E0', border: '1.5px solid var(--safety)', borderRadius: 12, padding: 16, textAlign: 'center' }}>
+          <div style={{ fontSize: '1.4rem', marginBottom: 8 }}>⏳</div>
+          <div style={{ fontWeight: 700, color: 'var(--safety)' }}>Réinitialisation en cours…</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--ink-soft)', marginTop: 4 }}>
+            Mise à jour de 950 lots + 2500 étapes. Ne quittez pas cette page.
+          </div>
+        </div>
+      )}
+
+      {resetState === 'done' && (
+        <div style={{ background: 'var(--recette-bg)', border: '1.5px solid var(--recette)', borderRadius: 12, padding: 16, textAlign: 'center' }}>
+          <div style={{ fontSize: '1.4rem', marginBottom: 4 }}>✅</div>
+          <div style={{ fontWeight: 700, color: 'var(--recette)' }}>Tous les appartements ont été réinitialisés.</div>
+        </div>
+      )}
       {overdueTasks.length === 0 && <div className="empty-state">Aucun retard sur le planning. 👍</div>}
       {overdueTasks.map((t) => (
         <div key={t.id} style={{ background: '#FDECEA', border: '1px solid var(--depense)', borderRadius: 10, padding: '10px 14px', marginBottom: 8, fontSize: '0.85rem' }}>
