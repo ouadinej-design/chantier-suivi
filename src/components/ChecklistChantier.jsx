@@ -30,13 +30,9 @@ export default function ChecklistChantier({ user }) {
 
   useEffect(() => {
     load()
-    // On ne souscrit qu'aux changements de checklist (pas etapes)
-    // pour éviter que chaque coche d'étape ne recharge tout et ferme les accordéons.
-    const channel = supabase
-      .channel('chantier-progress')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist' }, load)
-      .subscribe()
-    return () => supabase.removeChannel(channel)
+    // Pas de subscription Realtime : les mises à jour sont gérées de façon
+    // optimiste via handleChanged. Cela évite que la subscription écrase un
+    // reset en cours avec des données stale du serveur.
   }, [load])
 
   const handleReset = useCallback(async (scope) => {
