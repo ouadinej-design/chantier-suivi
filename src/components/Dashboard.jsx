@@ -84,6 +84,7 @@ export default function Dashboard({ onRead }) {
   const [budgets, setBudgets] = useState([])
   const [checklist, setChecklist] = useState([])
   const [loading, setLoading] = useState(true)
+  const [resetState, setResetState] = useState('idle')
   const [resetProgress, setResetProgress] = useState(0)
 
   async function load() {
