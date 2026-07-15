@@ -36,9 +36,13 @@ export default function LotAccordion({ lot, etapes, user, onChanged, onReset }) 
 
   async function recalcParent(etapesList) {
     const total = etapesList.length
-    const done = etapesList.filter((e) => e.statut === 'Terminé').length
-    const pct = total === 0 ? 0 : Math.round((done / total) * 10000) / 100
-    const newStatut = total > 0 && pct >= 100 ? 'Terminé' : pct > 0 ? 'En cours' : 'En attente'
+    const doneCount = etapesList.filter((e) => e.statut === 'Terminé').length
+    const coursCount = etapesList.filter((e) => e.statut === 'En cours').length
+    const pct = total === 0 ? 0 : Math.round((doneCount / total) * 10000) / 100
+    const newStatut = total === 0 ? 'En attente'
+      : pct >= 100 ? 'Terminé'
+      : (doneCount > 0 || coursCount > 0) ? 'En cours'
+      : 'En attente'
     await supabase.from(table).update({ avancement: pct, statut: newStatut }).eq('id', lot.id)
     return { avancement: pct, statut: newStatut }
   }
