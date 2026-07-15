@@ -3,12 +3,15 @@ import { supabase } from '../supabaseClient'
 import LotAccordion from './LotAccordion.jsx'
 
 export default function ChecklistAppartements({ user }) {
-  const [overview, setOverview] = useState({}) // { numero: { avg, statutCount } }
+  const [overview, setOverview] = useState({})
   const [selected, setSelected] = useState(null)
   const [lots, setLots] = useState([])
   const [etapesByLot, setEtapesByLot] = useState({})
   const [loading, setLoading] = useState(true)
   const [loadingDetail, setLoadingDetail] = useState(false)
+  // Garder l'état ouvert/fermé de chaque lot dans le parent
+  // pour qu'il survive aux re-renders des LotAccordion
+  const [openLots, setOpenLots] = useState({})
 
   const loadOverview = useCallback(async () => {
     const { data } = await supabase.from('appartement_lots').select('appartement_numero, avancement')
@@ -34,14 +37,13 @@ export default function ChecklistAppartements({ user }) {
     return () => supabase.removeChannel(channel)
   }, [loadOverview])
 
-  const loadDetail = useCallback(async (numero, silent = false) => {
-    if (!silent) setLoadingDetail(true)
+  const loadDetail = useCallback(async (numero) => {
+    setLoadingDetail(true)
     const { data: lotsData } = await supabase
       .from('appartement_lots')
       .select('*')
       .eq('appartement_numero', numero)
       .order('numero_lot', { ascending: true })
-    // Clé stable = "N°appartement_N°lot" (indépendante de l'identifiant technique)
     const stableKeys = (lotsData || []).map((l) => `${l.appartement_numero}_${l.numero_lot}`)
     const { data: etapesData } = await supabase
       .from('etapes')
@@ -49,13 +51,11 @@ export default function ChecklistAppartements({ user }) {
       .eq('parent_table', 'appartement_lots')
       .in('parent_id', stableKeys.length ? stableKeys : ['__none__'])
       .order('ordre', { ascending: true })
-
     const grouped = {}
     ;(etapesData || []).forEach((e) => {
       grouped[e.parent_id] = grouped[e.parent_id] || []
       grouped[e.parent_id].push(e)
     })
-
     setLots(lotsData || [])
     setEtapesByLot(grouped)
     setLoadingDetail(false)
@@ -64,14 +64,9 @@ export default function ChecklistAppartements({ user }) {
   useEffect(() => {
     if (selected == null) return
     loadDetail(selected)
-    // On ne souscrit qu'aux changements de appartement_lots (pas etapes)
-    // pour éviter que chaque coche d'étape ne recharge tout et ferme les accordéons ouverts.
-    // Les étapes sont gérées de façon optimiste via handleChanged.
-    const channel = supabase
-      .channel(`appartement-${selected}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'appartement_lots' }, () => loadDetail(selected, true))
-      .subscribe()
-    return () => supabase.removeChannel(channel)
+    setOpenLots({}) // réinitialise l'état ouvert lors du changement d'appartement
+    // Pas de subscription Realtime sur appartement_lots ici :
+    // les mises à jour sont gérées de façon optimiste via handleChanged.
   }, [selected, loadDetail])
 
   const handleReset = useCallback(async (scope) => {
@@ -81,30 +76,43 @@ export default function ChecklistAppartements({ user }) {
     for (const id of ids) {
       await supabase.from('appartement_lots').update({ statut: 'En attente', avancement: 0 }).eq('id', id)
     }
-    await supabase.from('etapes').update({ statut: 'En attente' }).eq('parent_table', 'appartement_lots').in('parent_id', ids)
-    await loadDetail(selected, true)
+    const stableKeys = lots.map((l) => `${l.appartement_numero}_${l.numero_lot}`)
+    if (stableKeys.length) {
+      await supabase.from('etapes').update({ statut: 'En attente' }).eq('parent_table', 'appartement_lots').in('parent_id', stableKeys)
+    }
+    // Recharger manuellement après reset
+    await loadDetail(selected)
     setOverview((prev) => ({ ...prev, [selected]: 0 }))
   }, [lots, selected, loadDetail])
 
-  // Met à jour l'écran immédiatement à partir du patch renvoyé par LotAccordion
+  // Mise à jour optimiste — aucun rechargement réseau, aucun re-mount
   const handleChanged = useCallback((lotId, patch, updatedEtapes) => {
-    if (!lotId) { if (selected != null) loadDetail(selected); return }
+    if (!lotId) return
     setLots((prev) => prev.map((l) => (l.id === lotId ? { ...l, ...patch } : l)))
     if (updatedEtapes) {
-      const lot = lots.find((l) => l.id === lotId)
-      const key = lot ? `${lot.appartement_numero}_${lot.numero_lot}` : null
-      if (key) setEtapesByLot((prev) => ({ ...prev, [key]: updatedEtapes }))
-    }
-    // Met aussi à jour la vignette d'aperçu (moyenne %) sans recharger tout le réseau
-    if (patch && typeof patch.avancement === 'number' && selected != null) {
-      setOverview((prev) => {
-        const lotsForApt = lots.map((l) => (l.id === lotId ? { ...l, avancement: patch.avancement } : l))
-        const vals = lotsForApt.map((l) => Number(l.avancement))
-        const avg = Math.round(vals.reduce((a, v) => a + v, 0) / (vals.length || 1))
-        return { ...prev, [selected]: avg }
+      // Trouver la clé stable du lot
+      setLots((prev) => {
+        const lot = prev.find((l) => l.id === lotId)
+        if (lot) {
+          const key = `${lot.appartement_numero}_${lot.numero_lot}`
+          setEtapesByLot((ep) => ({ ...ep, [key]: updatedEtapes }))
+        }
+        return prev // pas de changement supplémentaire ici
       })
     }
-  }, [lots, selected, loadDetail])
+    if (patch && typeof patch.avancement === 'number' && selected != null) {
+      setOverview((prev) => {
+        // Recalculer la moyenne à partir de l'état actuel
+        setLots((lotsNow) => {
+          const vals = lotsNow.map((l) => Number(l.id === lotId ? patch.avancement : l.avancement))
+          const avg = Math.round(vals.reduce((a, v) => a + v, 0) / (vals.length || 1))
+          setOverview((ov) => ({ ...ov, [selected]: avg }))
+          return lotsNow
+        })
+        return prev
+      })
+    }
+  }, [selected])
 
   function pctColor(pct) {
     if (pct >= 100) return 'var(--recette)'
@@ -128,25 +136,30 @@ export default function ChecklistAppartements({ user }) {
           <div className="amount">{pct}%</div>
         </div>
         {loadingDetail && <div className="empty-state">Chargement…</div>}
-        {!loadingDetail && lotsSorted.map((lot) => (
-          <LotAccordion
-            key={lot.id}
-            lot={{
-              id: lot.id,
-              parentTable: 'appartement_lots',
-              stableKey: `${lot.appartement_numero}_${lot.numero_lot}`,
-              numero: lot.numero_lot,
-              designation: lot.designation_lot,
-              unite: lot.unite,
-              statut: lot.statut,
-              avancement: lot.avancement,
-            }}
-            etapes={etapesByLot[`${lot.appartement_numero}_${lot.numero_lot}`] || []}
-            user={user}
-            onChanged={handleChanged}
-            onReset={handleReset}
-          />
-        ))}
+        {!loadingDetail && lotsSorted.map((lot) => {
+          const stableKey = `${lot.appartement_numero}_${lot.numero_lot}`
+          return (
+            <LotAccordion
+              key={stableKey}
+              lot={{
+                id: lot.id,
+                parentTable: 'appartement_lots',
+                stableKey,
+                numero: lot.numero_lot,
+                designation: lot.designation_lot,
+                unite: lot.unite,
+                statut: lot.statut,
+                avancement: lot.avancement,
+              }}
+              etapes={etapesByLot[stableKey] || []}
+              user={user}
+              onChanged={handleChanged}
+              onReset={handleReset}
+              openState={openLots[stableKey] || false}
+              onOpenChange={(val) => setOpenLots((prev) => ({ ...prev, [stableKey]: val }))}
+            />
+          )
+        })}
       </div>
     )
   }
