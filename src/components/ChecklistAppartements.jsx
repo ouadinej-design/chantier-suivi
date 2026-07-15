@@ -72,6 +72,18 @@ export default function ChecklistAppartements({ user }) {
     return () => supabase.removeChannel(channel)
   }, [selected, loadDetail])
 
+  const handleReset = useCallback(async (scope) => {
+    if (scope !== 'appartement' || selected == null) return
+    const ids = lots.map((l) => l.id)
+    if (!ids.length) return
+    for (const id of ids) {
+      await supabase.from('appartement_lots').update({ statut: 'En attente', avancement: 0 }).eq('id', id)
+    }
+    await supabase.from('etapes').update({ statut: 'En attente' }).eq('parent_table', 'appartement_lots').in('parent_id', ids)
+    await loadDetail(selected)
+    setOverview((prev) => ({ ...prev, [selected]: 0 }))
+  }, [lots, selected, loadDetail])
+
   // Met à jour l'écran immédiatement à partir du patch renvoyé par LotAccordion
   const handleChanged = useCallback((lotId, patch, updatedEtapes) => {
     if (!lotId) { if (selected != null) loadDetail(selected); return }
@@ -130,6 +142,7 @@ export default function ChecklistAppartements({ user }) {
             etapes={etapesByLot[`${lot.appartement_numero}_${lot.numero_lot}`] || []}
             user={user}
             onChanged={handleChanged}
+            onReset={handleReset}
           />
         ))}
       </div>
