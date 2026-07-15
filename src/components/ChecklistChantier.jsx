@@ -38,6 +38,17 @@ export default function ChecklistChantier({ user }) {
     return () => supabase.removeChannel(channel)
   }, [load])
 
+  const handleReset = useCallback(async (scope) => {
+    if (scope !== 'chantier') return
+    const ids = lots.map((l) => l.id)
+    if (!ids.length) return
+    for (const id of ids) {
+      await supabase.from('checklist').update({ statut: 'En attente', avancement: 0 }).eq('id', id)
+    }
+    await supabase.from('etapes').update({ statut: 'En attente' }).eq('parent_table', 'checklist').in('parent_id', ids)
+    await load()
+  }, [lots, load])
+
   // Met à jour l'écran immédiatement à partir du patch renvoyé par LotAccordion,
   // sans attendre un rechargement réseau (plus fiable que le temps réel Appwrite)
   const handleChanged = useCallback((lotId, patch, updatedEtapes) => {
@@ -65,6 +76,7 @@ export default function ChecklistChantier({ user }) {
           etapes={etapesByLot[lot.id] || []}
           user={user}
           onChanged={handleChanged}
+          onReset={handleReset}
         />
       ))}
     </div>
