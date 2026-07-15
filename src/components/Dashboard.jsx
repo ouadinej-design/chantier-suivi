@@ -87,7 +87,7 @@ export default function Dashboard({ onRead }) {
   const [budgets, setBudgets] = useState([])
   const [checklist, setChecklist] = useState([])
   const [loading, setLoading] = useState(true)
-  const [resetState, setResetState] = useState('idle') // idle | confirm | running | done
+  const [resetProgress, setResetProgress] = useState(0)
 
   async function load() {
     const { data, error } = await supabase.from('entries').select('*')
@@ -139,48 +139,46 @@ export default function Dashboard({ onRead }) {
 
   async function resetTousAppartements() {
     setResetState('running')
+    setResetProgress(0)
     try {
+      // Stratégie : traiter appartement par appartement (1→50)
+      // Chaque appartement a 19 lots → bien dans la limite Appwrite de 25
+      for (let aptNum = 1; aptNum <= 50; aptNum++) {
+        setResetProgress(aptNum)
+        // 1. Récupérer les 19 lots de cet appartement
+        const { data: lotsData } = await supabase
+          .from('appartement_lots')
+          .select('id, numero_lot')
+          .eq('appartement_numero', aptNum)
 
-      // 1. Récupérer tous les IDs de lots d'appartements (950)
-      let allLotIds = [], offset = 0
-      while (true) {
-        const res = await databases.listDocuments(DB_ID, COL.appartement_lots, [
-          Query.limit(100), Query.offset(offset)
-        ])
-        allLotIds = allLotIds.concat(res.documents.map(d => d.$id))
-        if (allLotIds.length >= res.total) break
-        offset += 100
-      }
+        for (const lot of lotsData || []) {
+          // 2. Reset le lot
+          await supabase
+            .from('appartement_lots')
+            .update({ statut: 'En attente', avancement: 0 })
+            .eq('id', lot.id)
 
-      // 2. Reset chaque lot
-      for (const id of allLotIds) {
-        await databases.updateDocument(DB_ID, COL.appartement_lots, id, {
-          statut: 'En attente', avancement: 0
-        })
-      }
+          // 3. Reset les étapes du lot via parent_id composite
+          const parentId = `${aptNum}_${lot.numero_lot}`
+          const { data: etapesData } = await supabase
+            .from('etapes')
+            .select('id')
+            .eq('parent_id', parentId)
 
-      // 3. Récupérer tous les IDs d'étapes appartements (2500)
-      let allEtapeIds = []
-      offset = 0
-      while (true) {
-        const res = await databases.listDocuments(DB_ID, COL.etapes, [
-          Query.equal('parent_table', ['appartement_lots']),
-          Query.limit(100), Query.offset(offset)
-        ])
-        allEtapeIds = allEtapeIds.concat(res.documents.map(d => d.$id))
-        if (allEtapeIds.length >= res.total) break
-        offset += 100
-      }
-
-      // 4. Reset chaque étape
-      for (const id of allEtapeIds) {
-        await databases.updateDocument(DB_ID, COL.etapes, id, { statut: 'En attente' })
+          for (const etape of etapesData || []) {
+            await supabase
+              .from('etapes')
+              .update({ statut: 'En attente' })
+              .eq('id', etape.id)
+          }
+        }
       }
 
       setResetState('done')
-      setTimeout(() => setResetState('idle'), 4000)
+      setTimeout(() => setResetState('idle'), 5000)
     } catch (err) {
       console.error('Reset error:', err)
+      alert('Erreur lors de la réinitialisation : ' + (err.message || err))
       setResetState('idle')
     }
   }
@@ -317,8 +315,14 @@ export default function Dashboard({ onRead }) {
         <div style={{ background: '#FFF3E0', border: '1.5px solid var(--safety)', borderRadius: 12, padding: 16, textAlign: 'center' }}>
           <div style={{ fontSize: '1.4rem', marginBottom: 8 }}>⏳</div>
           <div style={{ fontWeight: 700, color: 'var(--safety)' }}>Réinitialisation en cours…</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--ink-soft)', marginTop: 4 }}>
-            Mise à jour de 950 lots + 2500 étapes. Ne quittez pas cette page.
+          <div style={{ fontSize: '0.78rem', color: 'var(--ink-soft)', margin: '6px 0' }}>
+            Appartement {resetProgress} / 50
+          </div>
+          <div style={{ height: 6, background: '#E8E3DA', borderRadius: 999, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${(resetProgress / 50) * 100}%`, background: 'var(--safety)', borderRadius: 999, transition: 'width 0.3s' }} />
+          </div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--ink-soft)', marginTop: 8 }}>
+            Ne quittez pas cette page.
           </div>
         </div>
       )}
