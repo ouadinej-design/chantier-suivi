@@ -49,20 +49,17 @@ export default function EntryForm({ user, onSaved }) {
       }
     }
 
-    const rawPayload = {
-      type,
-      date,
-      montant: Number(montant),
-      auteur: user.nom,
-      lu: user.nom === 'Nej',
-      ...(type === 'depense' && categorie && { categorie }),
-      ...(type === 'depense' && section && { section }),
-      ...(type === 'retrait' && beneficiaire && { beneficiaire }),
-      ...(type === 'recette' && numeroFacture && { numero_facture: numeroFacture }),
-      ...(designation && { designation }),
-      ...(commentaire && { commentaire }),
-      ...(photo_url && { photo_url }),
-    }
+    // Payload minimal : seulement les champs certains du schema Appwrite
+    const rawPayload = { type, date, montant: Number(montant), auteur: user.nom }
+    if (designation) rawPayload.designation = designation
+    if (commentaire) rawPayload.commentaire = commentaire
+    if (photo_url) rawPayload.photo_url = photo_url
+    if (type === 'depense' && categorie) rawPayload.categorie = categorie
+    if (type === 'retrait' && beneficiaire) rawPayload.beneficiaire = beneficiaire
+    // Champs optionnels (peuvent ne pas exister dans le schema Appwrite selon la migration)
+    try { rawPayload.lu = user.nom === 'Nej' } catch(e) {}
+    try { if (type === 'depense' && section) rawPayload.section = section } catch(e) {}
+    try { if (type === 'recette' && numeroFacture) rawPayload.numero_facture = numeroFacture } catch(e) {}
 
     const { error } = await supabase.from('entries').insert(rawPayload)
     setSaving(false)
