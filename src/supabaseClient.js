@@ -238,11 +238,15 @@ export const supabase = {
       insert(payload) {
         return (async () => {
           try {
+            // Supprimer null/undefined : Appwrite rejette les champs non définis dans le schema
+            const cleanPayload = Object.fromEntries(
+              Object.entries(payload).filter(([, v]) => v !== null && v !== undefined)
+            )
             const data = await databases.createDocument(
               DB_ID,
               colId(table),
               ID.unique(),
-              payload,
+              cleanPayload,
               [Permission.read(Role.any()), Permission.update(Role.any()), Permission.delete(Role.any())]
             )
             return { data: withIdAlias(data), error: null }
