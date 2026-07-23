@@ -78,7 +78,7 @@ export default function EntryForm({ user, onSaved }) {
       setTimeout(() => setConfirmMsg(''), 2000)
       onSaved && onSaved()
     } else {
-      setConfirmMsg("Erreur — vérifiez la connexion")
+      setConfirmMsg("Erreur: " + (error?.message || error?.type || JSON.stringify(error)))
     }
   }
 
