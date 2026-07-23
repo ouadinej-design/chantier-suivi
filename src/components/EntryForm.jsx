@@ -49,22 +49,22 @@ export default function EntryForm({ user, onSaved }) {
       }
     }
 
-    const payload = {
+    const rawPayload = {
       type,
       date,
-      categorie: type === 'depense' ? categorie : null,
-      designation: designation || null,
       montant: Number(montant),
-      beneficiaire: type === 'retrait' ? beneficiaire : null,
       auteur: user.nom,
-      commentaire: commentaire || null,
-      photo_url,
-      numero_facture: type === 'recette' ? (numeroFacture || null) : null,
-      section: type === 'depense' ? section : null,
       lu: user.nom === 'Nej',
+      ...(type === 'depense' && categorie && { categorie }),
+      ...(type === 'depense' && section && { section }),
+      ...(type === 'retrait' && beneficiaire && { beneficiaire }),
+      ...(type === 'recette' && numeroFacture && { numero_facture: numeroFacture }),
+      ...(designation && { designation }),
+      ...(commentaire && { commentaire }),
+      ...(photo_url && { photo_url }),
     }
 
-    const { error } = await supabase.from('entries').insert(payload)
+    const { error } = await supabase.from('entries').insert(rawPayload)
     setSaving(false)
 
     if (!error) {
